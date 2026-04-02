@@ -1,0 +1,27 @@
+# Runtime data (COCO dataset, ~1.3GB)
+data/
+
+# Output artifacts
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

@@ -4,6 +4,9 @@ numpy==1.26.4
 pandas==2.2.2
 matplotlib==3.8.4
 Pillow==10.4.0
+pycocotools>=2.0.7
+tqdm>=4.66.0
+PyYAML>=6.0.1
 
 # API & Environment
 fastapi==0.115.0

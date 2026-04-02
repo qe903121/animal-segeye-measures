@@ -1,0 +1,40 @@
+# ===== COCO Dataset Configuration =====
+coco:
+  data_root: "data/coco"
+  images_dir: "val2017"
+  annotations_file: "instances_val2017.json"
+  urls:
+    images: "http://images.cocodataset.org/zips/val2017.zip"
+    annotations: "http://images.cocodataset.org/annotations/annotations_trainval2017.zip"
+
+# ===== Filtering Parameters =====
+filtering:
+  # COCO supercategory = 'animal' 下的所有合法類別
+  default_animal_categories:
+    - "bird"
+    - "cat"
+    - "dog"
+    - "horse"
+    - "sheep"
+    - "cow"
+    - "elephant"
+    - "bear"
+    - "zebra"
+    - "giraffe"
+  min_instances: 2          # 單張圖最少動物實體數
+  min_categories: 2         # 單張圖最少動物類別數
+  min_area: 2000            # 最小 bbox 面積 (px²), w * h
+  exclude_crowd: true       # 排除 iscrowd=1
+
+# ===== Output =====
+output:
+  debug_dir: "output/debug"
+  csv_path: "output/test_samples.csv"
+
+# ===== Download Settings =====
+download:
+  chunk_size: 8192          # streaming 下載的 chunk 大小 (bytes)
+  max_retries: 3
+  retry_backoff: 2.0        # exponential backoff base (seconds)
+  connect_timeout: 30       # 連線逾時 (seconds)
+  read_timeout: 300         # 讀取逾時 (seconds)
