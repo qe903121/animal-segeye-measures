@@ -1,0 +1,14 @@
+# Vision & Data Processing
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.8.4
+Pillow==10.4.0
+
+# API & Environment
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-dotenv==1.0.1
+
+# Dev Tools
+jupyterlab==4.2.5
