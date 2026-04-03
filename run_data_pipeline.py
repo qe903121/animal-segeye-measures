@@ -13,6 +13,9 @@ Usage examples:
     # Increase debug visualization count
     python run_data_pipeline.py --visualize 20
 
+    # Output debug images for ALL filtered images
+    python run_data_pipeline.py --visualize-all
+
     # Skip download check (when data is already cached)
     python run_data_pipeline.py --skip-download
 
@@ -120,6 +123,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="視覺化抽檢數量，0=跳過 (default: 10)",
     )
     parser.add_argument(
+        "--visualize-all",
+        action="store_true",
+        help="輸出所有通過篩選的圖片的 debug 視覺化（覆蓋 --visualize）",
+    )
+    parser.add_argument(
         "--skip-download",
         action="store_true",
         help="跳過下載檢查 (已有資料時加速)",
@@ -192,20 +200,22 @@ def main() -> None:
     loader.export_csv(dataset, csv_path)
 
     # ---- Step 5: Visualization ----
-    if args.visualize > 0:
+    vis_count = len(dataset) if args.visualize_all else args.visualize
+    if vis_count > 0:
+        mode_label = "全部" if args.visualize_all else f"抽檢 {vis_count}"
         logger.info("=" * 60)
-        logger.info("Step 4/4: 視覺化抽檢 (%d 張)", args.visualize)
+        logger.info("Step 4/4: 視覺化 — %s (%d 張)", mode_label, vis_count)
         logger.info("=" * 60)
 
         debug_dir = config.get("output", {}).get("debug_dir", "output/debug")
         saved = debug_visualize(
             dataset,
             output_dir=debug_dir,
-            sample_count=args.visualize,
+            sample_count=vis_count,
         )
-        logger.info("抽檢圖片儲存至: %s (%d 張)", debug_dir, len(saved))
+        logger.info("圖片儲存至: %s (%d 張)", debug_dir, len(saved))
     else:
-        logger.info("已跳過視覺化抽檢 (--visualize 0)")
+        logger.info("已跳過視覺化 (--visualize 0)")
 
     # ---- Summary ----
     logger.info("=" * 60)

@@ -11,25 +11,62 @@ coco:
 filtering:
   # COCO supercategory = 'animal' 下的所有合法類別
   default_animal_categories:
-    - "bird"
+    # - "bird"
     - "cat"
     - "dog"
-    - "horse"
-    - "sheep"
-    - "cow"
-    - "elephant"
-    - "bear"
-    - "zebra"
-    - "giraffe"
+    # - "horse"
+    # - "sheep"
+    # - "cow"
+    # - "elephant"
+    # - "bear"
+    # - "zebra"
+    # - "giraffe"
   min_instances: 2          # 單張圖最少動物實體數
   min_categories: 2         # 單張圖最少動物類別數
   min_area: 2000            # 最小 bbox 面積 (px²), w * h
   exclude_crowd: true       # 排除 iscrowd=1
+  max_overlap_ratio: 0.8    # 兩個 mask 重疊率超過此閾值時，移除較小的個體 (0.0~1.0)
 
 # ===== Output =====
 output:
   debug_dir: "output/debug"
+  debug_eyes_dir: "output/debug_eyes"
   csv_path: "output/test_samples.csv"
+
+# ===== Eye Detection Parameters (Phase 2 & 2.5) =====
+eye_detection:
+  method: "ai"                    # "cv" 或 "ai"
+  min_head_pixels: 400            # Mask 最小像素數 (低於此跳過偵測)
+  
+  # --- AI Model Parameters (Phase 2.5) ---
+  ai_model:
+    # 使用 MMPoseInferencer 的別名 (animal 自動對應 AP-10K 模型)
+    # 預設為 rtmpose-m_8xb64-210e_ap10k-256x256
+    alias: "animal"
+    score_threshold: 0.3          # 關鍵點信心分數門檻
+    device: "cpu"                 # "cpu" 或 "cuda:0"
+
+  # --- Haar Cascade 參數 ---
+  cascade:
+    cat_face_scale: 1.05          # detectMultiScale scaleFactor (貓臉)
+    cat_face_neighbors: 3         # detectMultiScale minNeighbors (貓臉)
+    eye_scale: 1.05               # detectMultiScale scaleFactor (眼睛)
+    eye_neighbors: 2              # detectMultiScale minNeighbors (眼睛, 較寬鬆)
+    eye_min_size_ratio: 0.03      # 眼睛最小尺寸佔 ROI 的比例
+    eye_max_size_ratio: 0.25      # 眼睛最大尺寸佔 ROI 的比例
+  # --- CLAHE 對比增強 ---
+  clahe:
+    clip_limit: 3.0               # CLAHE 對比度裁剪上限
+    tile_size: 8                  # CLAHE 網格大小
+  # --- Blob Detection (Stage 3 Fallback) ---
+  blob:
+    min_circularity: 0.3          # 最小圓形度
+    min_convexity: 0.5            # 最小凸性
+    area_ratio_range: [0.002, 0.08]  # blob 面積佔 Mask 的比例範圍
+  # --- 幾何驗證 ---
+  validation:
+    max_eye_angle_deg: 30.0       # 雙眼連線最大允許傾斜角
+    spacing_ratio_range: [0.10, 0.60]  # 雙眼間距佔 ROI 寬度的比例範圍
 
 # ===== Download Settings =====
 download:
@@ -38,3 +75,4 @@ download:
   retry_backoff: 2.0        # exponential backoff base (seconds)
   connect_timeout: 30       # 連線逾時 (seconds)
   read_timeout: 300         # 讀取逾時 (seconds)
+

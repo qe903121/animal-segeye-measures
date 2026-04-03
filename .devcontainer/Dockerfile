@@ -23,5 +23,13 @@ COPY requirements.txt /tmp/
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Copy and install AI dependencies
+COPY requirements-ai.txt /tmp/
+RUN pip install "numpy<2.0.0" cython "setuptools<70.0.0" && \
+    pip install chumpy --no-build-isolation && \
+    pip install --no-build-isolation --no-binary xtcocotools xtcocotools && \
+    pip install --no-cache-dir -r /tmp/requirements-ai.txt && \
+    pip install mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
+
 # Default startup command
 CMD ["/bin/bash"]
