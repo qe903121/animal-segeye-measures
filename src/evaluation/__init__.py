@@ -9,16 +9,19 @@ Public API:
     - :class:`EvaluationEngine`: Registry + executor for validators.
     - :class:`LocalizationValidator`: Eye localization quality validator.
     - :class:`MeasurementValidator`: Phase 3 baseline measurement validator.
+    - :class:`AccuracyValidator`: Ground truth accuracy validator.
 """
 
 from .base import BaseValidator
 from .engine import EvaluationEngine
 from .valid_loc import LocalizationValidator
 from .valid_measure import MeasurementValidator
+from .valid_accuracy import AccuracyValidator
 
 __all__ = [
     "BaseValidator",
     "EvaluationEngine",
     "LocalizationValidator",
     "MeasurementValidator",
+    "AccuracyValidator",
 ]

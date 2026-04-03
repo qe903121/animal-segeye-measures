@@ -37,6 +37,7 @@ from .base import BaseValidator
 
 if TYPE_CHECKING:
     from src.data.loader import ImageRecord
+    from src.data.prediction_loader import PredictionAsset
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class LocalizationValidator(BaseValidator):
     def evaluate(
         self,
         dataset: list[ImageRecord],
+        prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, Any]:
         """Compute localization quality metrics from the dataset.
 
@@ -86,6 +88,14 @@ class LocalizationValidator(BaseValidator):
             Metrics dictionary with keys documented in the class
             docstring.
         """
+        if prediction_asset is not None and not prediction_asset.localization.empty:
+            logger.info(
+                "LocalizationValidator: 直接使用 saved localization prediction asset。"
+            )
+            return self._evaluate_from_localization_asset(
+                prediction_asset.localization
+            )
+
         status_counts: dict[str, int] = {}
         per_category: dict[str, dict[str, int]] = {}
         confidences: list[float] = []
@@ -125,8 +135,8 @@ class LocalizationValidator(BaseValidator):
                     "category": category,
                     "status": status,
                     "confidence": round(confidence, 4),
-                    "left_eye": _fmt_coords(eyes.get("left_eye")),
-                    "right_eye": _fmt_coords(eyes.get("right_eye")),
+                    "left_eye": self.fmt_coords(eyes.get("left_eye")),
+                    "right_eye": self.fmt_coords(eyes.get("right_eye")),
                 })
 
                 if status == "SUCCESS":
@@ -196,6 +206,7 @@ class LocalizationValidator(BaseValidator):
         metrics: dict[str, Any],
         dataset: list[ImageRecord],
         output_dir: Path,
+        prediction_asset: PredictionAsset | None = None,
     ) -> None:
         """Persist evaluation artefacts to *output_dir*.
 
@@ -210,6 +221,7 @@ class LocalizationValidator(BaseValidator):
             dataset: Same dataset (for debug visualisation).
             output_dir: Target directory for all output files.
         """
+        del prediction_asset  # Debug rendering still uses the dataset.
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -244,6 +256,110 @@ class LocalizationValidator(BaseValidator):
         df = pd.DataFrame(rows)
         df.to_csv(csv_path, index=False, encoding="utf-8")
         logger.info("已匯出驗證 CSV: %s (%d 筆)", csv_path, len(df))
+
+    def _evaluate_from_localization_asset(
+        self,
+        localization_df: pd.DataFrame,
+    ) -> dict[str, Any]:
+        """Compute localization metrics directly from saved localization CSV."""
+        status_counts: dict[str, int] = {}
+        per_category: dict[str, dict[str, int]] = {}
+        confidences: list[float] = []
+        per_image_summary_map: dict[int, dict[str, Any]] = {}
+        annotation_rows: list[dict[str, Any]] = []
+        total_instances = 0
+
+        for row in localization_df.to_dict("records"):
+            total_instances += 1
+            image_id = int(row.get("image_id", -1))
+            category = str(row.get("category", "unknown"))
+            status = str(row.get("status", "UNKNOWN"))
+            confidence = float(row.get("confidence", 0.0) or 0.0)
+
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+            if category not in per_category:
+                per_category[category] = {}
+            cat_counts = per_category[category]
+            cat_counts[status] = cat_counts.get(status, 0) + 1
+
+            if status in ("SUCCESS", "SINGLE_EYE"):
+                confidences.append(confidence)
+
+            annotation_rows.append({
+                "image_id": image_id,
+                "annotation_id": row.get("annotation_id", -1),
+                "category": category,
+                "status": status,
+                "confidence": round(confidence, 4),
+                "left_eye": self.fmt_coords(_maybe_point(
+                    row.get("pred_left_eye_x"),
+                    row.get("pred_left_eye_y"),
+                )),
+                "right_eye": self.fmt_coords(_maybe_point(
+                    row.get("pred_right_eye_x"),
+                    row.get("pred_right_eye_y"),
+                )),
+            })
+
+            summary = per_image_summary_map.setdefault(
+                image_id,
+                {
+                    "image_id": image_id,
+                    "n_annotations": 0,
+                    "n_success": 0,
+                    "n_fail": 0,
+                },
+            )
+            summary["n_annotations"] += 1
+            if status == "SUCCESS":
+                summary["n_success"] += 1
+            else:
+                summary["n_fail"] += 1
+
+        success_count = status_counts.get("SUCCESS", 0)
+        single_count = status_counts.get("SINGLE_EYE", 0)
+        failed_count = total_instances - success_count - single_count
+        success_rate = (
+            success_count / total_instances * 100
+            if total_instances > 0 else 0.0
+        )
+
+        confidence_stats: dict[str, float] = {}
+        if confidences:
+            confidence_stats = {
+                "min": round(min(confidences), 4),
+                "max": round(max(confidences), 4),
+                "mean": round(statistics.mean(confidences), 4),
+                "median": round(statistics.median(confidences), 4),
+            }
+
+        per_category_rates: dict[str, dict[str, Any]] = {}
+        for cat, counts in per_category.items():
+            cat_total = sum(counts.values())
+            cat_success = counts.get("SUCCESS", 0)
+            per_category_rates[cat] = {
+                "total": cat_total,
+                "success": cat_success,
+                "success_rate": round(
+                    cat_success / cat_total * 100 if cat_total > 0 else 0.0,
+                    1,
+                ),
+                "status_distribution": dict(counts),
+            }
+
+        return {
+            "total_instances": total_instances,
+            "success_count": success_count,
+            "single_eye_count": single_count,
+            "failed_count": failed_count,
+            "success_rate": round(success_rate, 1),
+            "status_distribution": dict(status_counts),
+            "per_category": per_category_rates,
+            "confidence_stats": confidence_stats,
+            "per_image_summary": list(per_image_summary_map.values()),
+            "annotation_rows": annotation_rows,
+        }
 
     def _generate_debug_images(
         self, dataset: list[ImageRecord], output_dir: Path,
@@ -316,15 +432,20 @@ class LocalizationValidator(BaseValidator):
         logger.info("=" * 60)
 
 
-def _fmt_coords(coords: list[float] | None) -> str:
-    """Format coordinate list as a string for CSV output.
+def _safe_float(value: Any) -> float | None:
+    """Convert scalar to float, preserving blanks as ``None``."""
+    if pd.isna(value):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
-    Args:
-        coords: ``[x, y]`` or ``None``.
 
-    Returns:
-        Formatted string like ``"(123.4, 567.8)"`` or ``""`` if None.
-    """
-    if coords is None:
-        return ""
-    return f"({coords[0]:.1f}, {coords[1]:.1f})"
+def _maybe_point(x: Any, y: Any) -> list[float] | None:
+    """Build a point when both x/y are present."""
+    x_val = _safe_float(x)
+    y_val = _safe_float(y)
+    if x_val is None or y_val is None:
+        return None
+    return [x_val, y_val]

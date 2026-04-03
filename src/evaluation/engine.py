@@ -24,6 +24,7 @@ from .base import BaseValidator
 
 if TYPE_CHECKING:
     from src.data.loader import ImageRecord
+    from src.data.prediction_loader import PredictionAsset
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ class EvaluationEngine:
         task_name: str,
         dataset: list[ImageRecord],
         output_dir: Path,
+        prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, Any]:
         """Execute a single validator's full lifecycle.
 
@@ -112,6 +114,8 @@ class EvaluationEngine:
             output_dir: Root directory for this validator's output.
                 A subdirectory named after *task_name* will be created
                 automatically.
+            prediction_asset: Optional formal Prediction Asset bundle
+                associated with this evaluation run.
 
         Returns:
             The metrics dictionary produced by the validator.
@@ -138,10 +142,15 @@ class EvaluationEngine:
         validator = validator_cls(self._config)
 
         # Step 2: Evaluate
-        metrics = validator.evaluate(dataset)
+        metrics = validator.evaluate(dataset, prediction_asset=prediction_asset)
 
         # Step 3: Generate report
-        validator.generate_report(metrics, dataset, task_output_dir)
+        validator.generate_report(
+            metrics,
+            dataset,
+            task_output_dir,
+            prediction_asset=prediction_asset,
+        )
 
         logger.info(
             "驗證完成: %s → 報告輸出至 %s", task_name, task_output_dir
@@ -152,6 +161,7 @@ class EvaluationEngine:
         self,
         dataset: list[ImageRecord],
         output_dir: Path,
+        prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Execute all registered validators sequentially.
 
@@ -159,6 +169,8 @@ class EvaluationEngine:
             dataset: Standardised dataset.
             output_dir: Root output directory. Each validator gets a
                 subdirectory named after its task name.
+            prediction_asset: Optional formal Prediction Asset bundle
+                associated with this evaluation run.
 
         Returns:
             Mapping of ``{task_name: metrics_dict}`` for every
@@ -172,7 +184,12 @@ class EvaluationEngine:
 
         for task_name in self.registered_tasks:
             try:
-                metrics = self.run(task_name, dataset, output_dir)
+                metrics = self.run(
+                    task_name,
+                    dataset,
+                    output_dir,
+                    prediction_asset=prediction_asset,
+                )
                 all_metrics[task_name] = metrics
             except Exception:
                 logger.exception("驗證器 '%s' 執行失敗。", task_name)

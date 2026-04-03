@@ -29,7 +29,7 @@ class BaseEyeDetector(ABC):
 
     Subclasses:
         - :class:`HeuristicCVDetector`: Traditional CV pipeline.
-        - :class:`DeepPoseDetector`: AI model placeholder (stub).
+        - :class:`DeepPoseDetector`: AI keypoint localization via MMPose.
     """
 
     @abstractmethod

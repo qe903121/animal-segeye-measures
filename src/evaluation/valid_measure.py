@@ -16,18 +16,21 @@ animals with larger apparent eye distance are treated as closer.
 from __future__ import annotations
 
 import logging
-import math
-import statistics
-from itertools import combinations
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 
 from .base import BaseValidator
+from src.prediction import (
+    build_measurement_prediction,
+    summarize_measurement_asset_frames,
+    summarize_measurement_prediction,
+)
 
 if TYPE_CHECKING:
     from src.data.loader import ImageRecord
+    from src.data.prediction_loader import PredictionAsset
 
 logger = logging.getLogger(__name__)
 
@@ -46,153 +49,33 @@ class MeasurementValidator(BaseValidator):
     def evaluate(
         self,
         dataset: list[ImageRecord],
+        prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, Any]:
         """Compute baseline eye-distance and front/back proxy metrics."""
-        annotation_rows: list[dict[str, Any]] = []
-        pair_rows: list[dict[str, Any]] = []
-        eye_distances: list[float] = []
-        pair_gaps: list[float] = []
-        per_category_values: dict[str, list[float]] = {}
+        if prediction_asset is not None:
+            measurement_instances = prediction_asset.measurement_instances
+            measurement_pairs = prediction_asset.measurement_pairs
+            if not measurement_instances.empty or not measurement_pairs.empty:
+                logger.info(
+                    "MeasurementValidator: 直接使用 saved measurement prediction assets。"
+                )
+                return summarize_measurement_asset_frames(
+                    measurement_instances,
+                    measurement_pairs,
+                )
 
-        total_instances = 0
-        valid_eye_measurements = 0
-        total_pairs = 0
-        valid_pairs = 0
-
-        for record in dataset:
-            image_id = record["image_id"]
-            measured_annotations: list[dict[str, Any]] = []
-
-            for ann in record["annotations"]:
-                total_instances += 1
-
-                eyes = ann.get("eyes", {})
-                status = eyes.get("status", "UNKNOWN")
-                category = ann.get("category", "unknown")
-                left_eye = eyes.get("left_eye")
-                right_eye = eyes.get("right_eye")
-                eye_distance_px: float | None = None
-
-                if (
-                    status == "SUCCESS"
-                    and left_eye is not None
-                    and right_eye is not None
-                ):
-                    dx = float(right_eye[0]) - float(left_eye[0])
-                    dy = float(right_eye[1]) - float(left_eye[1])
-                    eye_distance_px = round(math.hypot(dx, dy), 3)
-                    eye_distances.append(eye_distance_px)
-                    valid_eye_measurements += 1
-                    per_category_values.setdefault(category, []).append(
-                        eye_distance_px
-                    )
-
-                annotation_info = {
-                    "image_id": image_id,
-                    "annotation_id": ann.get("id", -1),
-                    "category": category,
-                    "status": status,
-                    "left_eye": _fmt_coords(left_eye),
-                    "right_eye": _fmt_coords(right_eye),
-                    "eye_distance_px": eye_distance_px,
-                    "depth_proxy_px": eye_distance_px,
-                    "measurement_valid": eye_distance_px is not None,
-                }
-                annotation_rows.append(annotation_info)
-                measured_annotations.append(annotation_info)
-
-            for ann_a, ann_b in combinations(measured_annotations, 2):
-                total_pairs += 1
-                dist_a = ann_a["eye_distance_px"]
-                dist_b = ann_b["eye_distance_px"]
-                valid_pair = dist_a is not None and dist_b is not None
-
-                row: dict[str, Any] = {
-                    "image_id": image_id,
-                    "annotation_a_id": ann_a["annotation_id"],
-                    "category_a": ann_a["category"],
-                    "eye_distance_a_px": dist_a,
-                    "annotation_b_id": ann_b["annotation_id"],
-                    "category_b": ann_b["category"],
-                    "eye_distance_b_px": dist_b,
-                    "valid_pair": valid_pair,
-                    "front_back_proxy_gap_px": None,
-                    "front_back_proxy_ratio": None,
-                    "closer_annotation_id": None,
-                    "farther_annotation_id": None,
-                    "relation": "UNAVAILABLE",
-                    "skip_reason": "",
-                }
-
-                if valid_pair:
-                    valid_pairs += 1
-                    gap_px = round(abs(dist_a - dist_b), 3)
-                    max_dist = max(dist_a, dist_b)
-                    ratio = round(gap_px / max_dist, 4) if max_dist > 0 else 0.0
-                    pair_gaps.append(gap_px)
-
-                    row["front_back_proxy_gap_px"] = gap_px
-                    row["front_back_proxy_ratio"] = ratio
-
-                    if math.isclose(dist_a, dist_b, rel_tol=0.0, abs_tol=1e-6):
-                        row["relation"] = "TIE"
-                    elif dist_a > dist_b:
-                        row["relation"] = "A_CLOSER"
-                        row["closer_annotation_id"] = ann_a["annotation_id"]
-                        row["farther_annotation_id"] = ann_b["annotation_id"]
-                    else:
-                        row["relation"] = "B_CLOSER"
-                        row["closer_annotation_id"] = ann_b["annotation_id"]
-                        row["farther_annotation_id"] = ann_a["annotation_id"]
-                else:
-                    row["skip_reason"] = (
-                        f"{ann_a['status']}|{ann_b['status']}"
-                    )
-
-                pair_rows.append(row)
-
-        skipped_eye_measurements = total_instances - valid_eye_measurements
-        skipped_pairs = total_pairs - valid_pairs
-        eye_measurement_rate = (
-            valid_eye_measurements / total_instances * 100
-            if total_instances > 0 else 0.0
-        )
-        valid_pair_rate = (
-            valid_pairs / total_pairs * 100 if total_pairs > 0 else 0.0
-        )
-
-        per_category = {
-            category: {
-                "count": len(values),
-                "mean_eye_distance_px": round(statistics.mean(values), 3),
-                "median_eye_distance_px": round(statistics.median(values), 3),
-            }
-            for category, values in sorted(per_category_values.items())
-        }
-
-        return {
-            "total_instances": total_instances,
-            "valid_eye_measurements": valid_eye_measurements,
-            "skipped_eye_measurements": skipped_eye_measurements,
-            "eye_measurement_rate": round(eye_measurement_rate, 1),
-            "total_pairs": total_pairs,
-            "valid_pairs": valid_pairs,
-            "skipped_pairs": skipped_pairs,
-            "valid_pair_rate": round(valid_pair_rate, 1),
-            "eye_distance_stats": _summarize(eye_distances),
-            "front_back_gap_stats": _summarize(pair_gaps),
-            "per_category": per_category,
-            "annotation_rows": annotation_rows,
-            "pair_rows": pair_rows,
-        }
+        tables = build_measurement_prediction(dataset)
+        return summarize_measurement_prediction(tables)
 
     def generate_report(
         self,
         metrics: dict[str, Any],
         dataset: list[ImageRecord],
         output_dir: Path,
+        prediction_asset: PredictionAsset | None = None,
     ) -> None:
         """Persist measurement CSVs and log summary statistics."""
+        del prediction_asset  # Reports currently use only prepared metrics.
         del dataset  # Not needed for this report yet.
 
         output_dir = Path(output_dir)
@@ -284,23 +167,3 @@ class MeasurementValidator(BaseValidator):
             "以眼距大小差異表示，不是實體世界距離。"
         )
         logger.info("=" * 60)
-
-
-def _summarize(values: list[float]) -> dict[str, float]:
-    """Return a standard numeric summary dictionary."""
-    if not values:
-        return {}
-
-    return {
-        "min": round(min(values), 3),
-        "max": round(max(values), 3),
-        "mean": round(statistics.mean(values), 3),
-        "median": round(statistics.median(values), 3),
-    }
-
-
-def _fmt_coords(coords: list[float] | None) -> str:
-    """Format coordinate list as a CSV-friendly string."""
-    if coords is None:
-        return ""
-    return f"({coords[0]:.1f}, {coords[1]:.1f})"

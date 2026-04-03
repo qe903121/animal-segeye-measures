@@ -37,7 +37,9 @@ output:
 assets:
   dataset_root: "assets/datasets"
   ground_truth_root: "assets/ground_truth"
+  prediction_root: "assets/predictions"
   schema_version: 1
+  prediction_schema_version: 1
 
 # ===== Eye Detection Parameters (Phase 2 & 2.5) =====
 eye_detection:

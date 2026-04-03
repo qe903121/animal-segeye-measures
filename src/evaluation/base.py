@@ -18,6 +18,7 @@ from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.data.loader import ImageRecord
+    from src.data.prediction_loader import PredictionAsset
 
 
 class BaseValidator(ABC):
@@ -51,6 +52,7 @@ class BaseValidator(ABC):
     def evaluate(
         self,
         dataset: list[ImageRecord],
+        prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, Any]:
         """Compute evaluation metrics from a standardised dataset.
 
@@ -61,6 +63,10 @@ class BaseValidator(ABC):
         Args:
             dataset: Phase 1/2 output — list of :class:`ImageRecord`
                 dicts with ``eyes`` fields already populated.
+            prediction_asset: Optional formal Prediction Asset bundle.
+                When provided, validators should prefer consuming it
+                directly instead of relying only on runtime dataset
+                mutation.
 
         Returns:
             A dictionary of metric names to values. The structure is
@@ -74,6 +80,7 @@ class BaseValidator(ABC):
         metrics: dict[str, Any],
         dataset: list[ImageRecord],
         output_dir: Path,
+        prediction_asset: PredictionAsset | None = None,
     ) -> None:
         """Persist evaluation artefacts to *output_dir*.
 
@@ -86,4 +93,20 @@ class BaseValidator(ABC):
                 (needed for debug visualisation).
             output_dir: Target directory for all output files.
                 Must **not** be hardcoded — always use this argument.
+            prediction_asset: Optional formal Prediction Asset bundle
+                associated with the current evaluation run.
         """
+        
+    @staticmethod
+    def fmt_coords(coords: list[float] | tuple[float, float] | None) -> str:
+        """Format coordinate list as a CSV-friendly string.
+
+        Args:
+            coords: ``[x, y]`` or ``None``.
+
+        Returns:
+            Formatted string like ``"(123.4, 567.8)"`` or ``""`` if None.
+        """
+        if coords is None:
+            return ""
+        return f"({coords[0]:.1f}, {coords[1]:.1f})"

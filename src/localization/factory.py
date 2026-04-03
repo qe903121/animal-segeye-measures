@@ -21,7 +21,7 @@ def create_detector(method: str, config: dict) -> BaseEyeDetector:
     Args:
         method: Detection strategy name. Supported values:
             - ``"cv"``: Traditional computer vision pipeline.
-            - ``"ai"``: Deep learning (currently stub, falls back to CV).
+            - ``"ai"``: MMPose top-down keypoint localization.
         config: Full parsed ``config.yaml`` dictionary.
 
     Returns:
