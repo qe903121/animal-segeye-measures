@@ -33,6 +33,12 @@ output:
   debug_eyes_dir: "output/debug_eyes"
   csv_path: "output/test_samples.csv"
 
+# ===== Dataset Asset Layer =====
+assets:
+  dataset_root: "assets/datasets"
+  ground_truth_root: "assets/ground_truth"
+  schema_version: 1
+
 # ===== Eye Detection Parameters (Phase 2 & 2.5) =====
 eye_detection:
   method: "ai"                    # "cv" 或 "ai"
@@ -75,4 +81,3 @@ download:
   retry_backoff: 2.0        # exponential backoff base (seconds)
   connect_timeout: 30       # 連線逾時 (seconds)
   read_timeout: 300         # 讀取逾時 (seconds)
-

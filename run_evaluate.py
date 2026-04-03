@@ -1,22 +1,26 @@
 """Unified Evaluation CLI — Entry Point.
 
-Loads a dataset (real pipeline or mock), registers validators with the
-:class:`~src.evaluation.EvaluationEngine`, and executes the requested
-evaluation task(s).
+Loads a dataset (fresh Phase 1 pipeline, frozen dataset asset, or mock),
+registers validators with the :class:`~src.evaluation.EvaluationEngine`,
+and executes the requested evaluation task(s).
 
 Usage examples::
 
-    # Run localization evaluation with real AI pipeline
-    python run_evaluate.py --task localization --method ai --output-dir output/eval
+    # Run the full real pipeline: download/check → filter → eye detection
+    # → localization report → measurement report
+    python run_evaluate.py --task pipeline --method ai --output-dir output/eval
 
-    # Run all registered evaluations
-    python run_evaluate.py --task all --output-dir output/eval
+    # Reuse an exported dataset asset to keep evaluation aligned with GT
+    python run_evaluate.py --task localization --method ai --dataset-id <id>
+
+    # Run only the measurement stage
+    python run_evaluate.py --task measurement --method ai --output-dir output/eval
 
     # Quick test with mock data (no COCO download, no inference)
-    python run_evaluate.py --task localization --mock --output-dir /tmp/eval_test
+    python run_evaluate.py --task pipeline --mock --output-dir /tmp/eval_test
 
     # Verbose logging
-    python run_evaluate.py --task localization --method ai --verbose
+    python run_evaluate.py --task pipeline --method ai --verbose
 """
 
 from __future__ import annotations
@@ -27,62 +31,26 @@ import sys
 import time
 from pathlib import Path
 
-import yaml
-
-from src.data.loader import COCODataLoader, ImageRecord
-from src.evaluation import EvaluationEngine, LocalizationValidator
+from src.data import AutoDownloader, COCODataLoader, DatasetAssetLoader
+from src.data.loader import ImageRecord
+from src.evaluation import (
+    EvaluationEngine,
+    LocalizationValidator,
+    MeasurementValidator,
+)
 from src.localization import create_detector
+from src.utils.cli import setup_logging, load_config
 
-# ------------------------------------------------------------------
-# Logging setup
-# ------------------------------------------------------------------
-
-LOG_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-
-
-def _setup_logging(verbose: bool = False) -> None:
-    """Configure root logger with console output.
-
-    Args:
-        verbose: If True, set level to DEBUG; else INFO.
-    """
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format=LOG_FORMAT,
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-
-
-# ------------------------------------------------------------------
-# Config loading
-# ------------------------------------------------------------------
-
-
-def _load_config(config_path: str) -> dict:
-    """Load and return the YAML configuration file.
-
-    Args:
-        config_path: Path to the ``config.yaml`` file.
-
-    Returns:
-        Parsed configuration dictionary.
-
-    Raises:
-        FileNotFoundError: Config file does not exist.
-        yaml.YAMLError: Config file contains invalid YAML.
-    """
-    path = Path(config_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"設定檔不存在: {path}")
-
-    with open(path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    logging.getLogger(__name__).info("已載入設定檔: %s", path)
-    return config
-
+TASK_PIPELINE = "pipeline"
+TASK_ALL = "all"
+TASK_LOCALIZATION = "localization"
+TASK_MEASUREMENT = "measurement"
+TASK_CHOICES = [
+    TASK_PIPELINE,
+    TASK_ALL,
+    TASK_LOCALIZATION,
+    TASK_MEASUREMENT,
+]
 
 # ------------------------------------------------------------------
 # Dataset preparation
@@ -93,13 +61,19 @@ def _load_real_dataset(
     config: dict,
     method: str,
     categories: list[str] | None = None,
+    skip_download: bool = False,
+    dataset_id: str | None = None,
 ) -> list[ImageRecord]:
-    """Run Phase 1 + Phase 2 pipeline and return the processed dataset.
+    """Run Phase 2 on either a fresh Phase 1 dataset or a frozen asset.
 
     Args:
         config: Full parsed config dictionary.
         method: Detection method (``"cv"`` or ``"ai"``).
         categories: Optional target animal categories override.
+        skip_download: If True, do not run :class:`AutoDownloader`.
+        dataset_id: Optional Dataset Asset id. When provided, Phase 1
+            membership is reconstructed from the exported asset instead
+            of re-running filter selection.
 
     Returns:
         Dataset with ``eyes`` fields populated by the detector.
@@ -109,17 +83,41 @@ def _load_real_dataset(
     """
     logger = logging.getLogger(__name__)
 
-    # Phase 1: Load and filter
-    logger.info("載入 Phase 1 篩選資料集...")
-    loader = COCODataLoader(
-        data_root=config["coco"]["data_root"],
-        target_categories=categories,
-        config=config,
-    )
-    dataset = loader.load_filtered_dataset()
+    if not skip_download:
+        logger.info("檢查 COCO 資料是否已就緒...")
+        AutoDownloader(config).ensure_ready()
+    else:
+        logger.info("已跳過下載檢查 (--skip-download)")
+
+    if dataset_id:
+        if categories:
+            logger.warning(
+                "已指定 --dataset-id，將忽略 --categories，改用 asset 固定成員。"
+            )
+
+        logger.info("載入固定 Dataset Asset: %s", dataset_id)
+        asset = DatasetAssetLoader(config).load(dataset_id)
+        asset_categories = asset.manifest.get("requested_categories") or categories
+        loader = COCODataLoader(
+            data_root=config["coco"]["data_root"],
+            target_categories=asset_categories,
+            config=config,
+            auto_download=False,
+        )
+        dataset = loader.load_dataset_from_instances(asset.instances)
+    else:
+        # Phase 1: Load and filter
+        logger.info("載入 Phase 1 篩選資料集...")
+        loader = COCODataLoader(
+            data_root=config["coco"]["data_root"],
+            target_categories=categories,
+            config=config,
+            auto_download=False,
+        )
+        dataset = loader.load_filtered_dataset()
 
     if not dataset:
-        logger.error("Phase 1 篩選結果為空，無法進行驗證。")
+        logger.error("資料集為空，無法進行驗證。")
         sys.exit(1)
 
     # Phase 2: Eye detection
@@ -272,20 +270,25 @@ def _build_parser() -> argparse.ArgumentParser:
         Configured ``argparse.ArgumentParser`` instance.
     """
     parser = argparse.ArgumentParser(
-        description="Unified Evaluation: 統一驗證框架 CLI",
+        description="Unified Evaluation: 全 pipeline CLI（資料 → 偵測 → 量測 → 驗證）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "範例:\n"
-            "  python run_evaluate.py --task localization --method ai\n"
-            "  python run_evaluate.py --task all --output-dir output/eval\n"
-            "  python run_evaluate.py --task localization --mock\n"
+            "  python run_evaluate.py --task pipeline --method ai\n"
+            "  python run_evaluate.py --task measurement --method ai\n"
+            "  python run_evaluate.py --task pipeline --mock\n"
+            "  python run_evaluate.py --task localization --method ai --dataset-id <id>\n"
         ),
     )
     parser.add_argument(
         "--task",
         type=str,
-        default="all",
-        help="驗證任務: localization, all (default: all)",
+        choices=TASK_CHOICES,
+        default=TASK_PIPELINE,
+        help=(
+            "執行任務: pipeline=完整流程, all=所有已註冊驗證器, "
+            "localization=眼睛定位, measurement=量測層"
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -312,6 +315,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="目標動物類別 (default: 使用設定檔中的預設清單)",
+    )
+    parser.add_argument(
+        "--dataset-id",
+        type=str,
+        default=None,
+        help="使用既有 Dataset Asset id 重建 Phase 1 成員，而非重新過濾",
     )
     parser.add_argument(
         "--mock",
@@ -349,16 +358,16 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    _setup_logging(verbose=args.verbose)
+    setup_logging(verbose=args.verbose)
     logger = logging.getLogger(__name__)
 
     # ---- Step 1: Load config ----
-    config = _load_config(args.config)
+    config = load_config(args.config)
 
     # ---- Step 2: Build engine and register validators ----
     engine = EvaluationEngine(config)
-    engine.register("localization", LocalizationValidator)
-    # Future: engine.register("measurement", MeasurementValidator)
+    engine.register(TASK_LOCALIZATION, LocalizationValidator)
+    engine.register(TASK_MEASUREMENT, MeasurementValidator)
 
     logger.info(
         "已註冊 %d 個驗證器: %s",
@@ -374,7 +383,11 @@ def main() -> None:
     else:
         logger.info("模式: REAL PIPELINE (method=%s)", args.method)
         dataset = _load_real_dataset(
-            config, args.method, categories=args.categories,
+            config,
+            args.method,
+            categories=args.categories,
+            skip_download=args.skip_download,
+            dataset_id=args.dataset_id,
         )
     logger.info("=" * 60)
 
@@ -388,11 +401,13 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     t_start = time.time()
 
-    if args.task.lower() == "all":
+    requested_task = TASK_ALL if args.task == TASK_PIPELINE else args.task
+
+    if requested_task == TASK_ALL:
         all_metrics = engine.run_all(dataset, output_dir)
     else:
         all_metrics = {
-            args.task: engine.run(args.task, dataset, output_dir)
+            requested_task: engine.run(requested_task, dataset, output_dir)
         }
 
     t_eval = time.time() - t_start
@@ -409,9 +424,22 @@ def main() -> None:
     for task_name, metrics in all_metrics.items():
         if metrics.get("error"):
             logger.error("  [%s] 執行失敗", task_name)
-        else:
+        elif task_name == TASK_LOCALIZATION:
             sr = metrics.get("success_rate", "N/A")
             logger.info("  [%s] Success Rate: %s%%", task_name, sr)
+        elif task_name == TASK_MEASUREMENT:
+            valid_eye = metrics.get("valid_eye_measurements", "N/A")
+            total_eye = metrics.get("total_instances", "N/A")
+            valid_pair = metrics.get("valid_pairs", "N/A")
+            total_pair = metrics.get("total_pairs", "N/A")
+            logger.info(
+                "  [%s] Eye Distances: %s/%s, Pairwise Proxy: %s/%s",
+                task_name,
+                valid_eye,
+                total_eye,
+                valid_pair,
+                total_pair,
+            )
 
     logger.info("=" * 60)
 

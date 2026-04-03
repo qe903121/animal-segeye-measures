@@ -1,7 +1,8 @@
 """Phase 1 Data Pipeline — One-Shot Entry Point.
 
 Downloads COCO val2017 (if needed), applies multi-animal filtering,
-exports a baseline CSV index, and optionally generates debug visualizations.
+exports a baseline CSV index, persists a reusable dataset asset, and
+optionally generates debug visualizations.
 
 Usage examples:
     # Use default config
@@ -33,8 +34,7 @@ from pathlib import Path
 
 import yaml
 
-from src.data.downloader import AutoDownloader
-from src.data.loader import COCODataLoader
+from src.data import AutoDownloader, COCODataLoader, DatasetAssetExporter
 from src.utils.visualization import debug_visualize
 
 # ------------------------------------------------------------------
@@ -153,8 +153,9 @@ def main() -> None:
         2. (Optional) Run ``AutoDownloader.ensure_ready()``.
         3. Initialize ``COCODataLoader`` and run ``load_filtered_dataset()``.
         4. Export ``test_samples.csv``.
-        5. (Optional) Generate debug visualizations.
-        6. Print summary statistics to stdout.
+        5. Export dataset asset (``manifest.json`` + ``instances.csv``).
+        6. (Optional) Generate debug visualizations.
+        7. Print summary statistics to stdout.
     """
     parser = _build_parser()
     args = parser.parse_args()
@@ -168,7 +169,7 @@ def main() -> None:
     # ---- Step 2: Download (unless skipped) ----
     if not args.skip_download:
         logger.info("=" * 60)
-        logger.info("Step 1/4: 檢查並下載 COCO val2017 資料集")
+        logger.info("Step 1/5: 檢查並下載 COCO val2017 資料集")
         logger.info("=" * 60)
         downloader = AutoDownloader(config)
         downloader.ensure_ready()
@@ -177,7 +178,7 @@ def main() -> None:
 
     # ---- Step 3: Load and filter ----
     logger.info("=" * 60)
-    logger.info("Step 2/4: 載入標註並執行過濾")
+    logger.info("Step 2/5: 載入標註並執行過濾")
     logger.info("=" * 60)
 
     t_start = time.time()
@@ -186,6 +187,7 @@ def main() -> None:
         data_root=config["coco"]["data_root"],
         target_categories=args.categories,
         config=config,
+        auto_download=False,
     )
     dataset = loader.load_filtered_dataset()
 
@@ -193,18 +195,29 @@ def main() -> None:
 
     # ---- Step 4: Export CSV ----
     logger.info("=" * 60)
-    logger.info("Step 3/4: 匯出基準索引 CSV")
+    logger.info("Step 3/5: 匯出基準索引 CSV")
     logger.info("=" * 60)
 
     csv_path = config.get("output", {}).get("csv_path", "output/test_samples.csv")
     loader.export_csv(dataset, csv_path)
 
-    # ---- Step 5: Visualization ----
+    # ---- Step 5: Export dataset asset ----
+    logger.info("=" * 60)
+    logger.info("Step 4/5: 匯出 Dataset Asset")
+    logger.info("=" * 60)
+
+    exporter = DatasetAssetExporter(config)
+    asset_info = exporter.export(
+        dataset=dataset,
+        target_categories=loader.target_categories,
+    )
+
+    # ---- Step 6: Visualization ----
     vis_count = len(dataset) if args.visualize_all else args.visualize
     if vis_count > 0:
         mode_label = "全部" if args.visualize_all else f"抽檢 {vis_count}"
         logger.info("=" * 60)
-        logger.info("Step 4/4: 視覺化 — %s (%d 張)", mode_label, vis_count)
+        logger.info("Step 5/5: 視覺化 — %s (%d 張)", mode_label, vis_count)
         logger.info("=" * 60)
 
         debug_dir = config.get("output", {}).get("debug_dir", "output/debug")
@@ -222,6 +235,7 @@ def main() -> None:
     logger.info("Pipeline 完成！摘要如下：")
     logger.info("=" * 60)
     logger.info("  通過篩選的圖片數: %d", len(dataset))
+    total_instances = 0
     if dataset:
         total_instances = sum(len(r["annotations"]) for r in dataset)
         all_cats = set()
@@ -230,9 +244,16 @@ def main() -> None:
                 all_cats.add(ann["category"])
         logger.info("  動物實體總數:     %d", total_instances)
         logger.info("  涵蓋類別:         %s", sorted(all_cats))
-        logger.info("  平均每圖實體數:   %.1f", total_instances / len(dataset))
+        avg_instances = total_instances / len(dataset)
+    else:
+        avg_instances = 0.0
+        logger.info("  動物實體總數:     0")
+        logger.info("  涵蓋類別:         []")
+    logger.info("  平均每圖實體數:   %.1f", avg_instances)
     logger.info("  過濾耗時:         %.2f 秒", t_filter)
     logger.info("  CSV 匯出路徑:     %s", csv_path)
+    logger.info("  Dataset ID:       %s", asset_info.dataset_id)
+    logger.info("  Dataset Asset:    %s", asset_info.asset_dir)
     logger.info("=" * 60)
 
 
