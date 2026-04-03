@@ -1,18 +1,15 @@
 """Phase 2 Eye Detection — One-Shot Entry Point.
 
 Loads the Phase 1 filtered dataset, runs eye detection on all animal
-instances, generates statistics, and optionally produces debug
-visualizations.
+instances, then delegates evaluation (statistics + debug visualisation)
+to the Unified Evaluation Framework.
 
 Usage examples:
-    # Default: CV method, 10 debug images
+    # Default: CV method
     python run_eye_detection.py
 
-    # AI method (stub, falls back to CV)
+    # AI method (MMPose AP-10K)
     python run_eye_detection.py --method ai
-
-    # All debug images
-    python run_eye_detection.py --visualize-all
 
     # Skip data download, verbose logging
     python run_eye_detection.py --skip-download --verbose
@@ -29,62 +26,11 @@ import sys
 import time
 from pathlib import Path
 
-import yaml
-
+from src.data.downloader import AutoDownloader
 from src.data.loader import COCODataLoader
 from src.localization import create_detector
 from src.evaluation import EvaluationEngine, LocalizationValidator
-
-# ------------------------------------------------------------------
-# Logging setup
-# ------------------------------------------------------------------
-
-LOG_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-
-
-def _setup_logging(verbose: bool = False) -> None:
-    """Configure root logger with console output.
-
-    Args:
-        verbose: If True, set level to DEBUG; else INFO.
-    """
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format=LOG_FORMAT,
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-
-
-# ------------------------------------------------------------------
-# Config loading
-# ------------------------------------------------------------------
-
-
-def _load_config(config_path: str) -> dict:
-    """Load and return the YAML configuration file.
-
-    Args:
-        config_path: Path to the ``config.yaml`` file.
-
-    Returns:
-        Parsed configuration dictionary.
-
-    Raises:
-        FileNotFoundError: Config file does not exist.
-        yaml.YAMLError: Config file contains invalid YAML.
-    """
-    path = Path(config_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"設定檔不存在: {path}")
-
-    with open(path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
-    logging.getLogger(__name__).info("已載入設定檔: %s", path)
-    return config
-
+from src.utils.cli import setup_logging, load_config
 
 # ------------------------------------------------------------------
 # CLI argument parser
@@ -153,21 +99,27 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    _setup_logging(verbose=args.verbose)
+    setup_logging(verbose=args.verbose)
     logger = logging.getLogger(__name__)
 
     # ---- Step 1: Load config ----
-    config = _load_config(args.config)
+    config = load_config(args.config)
 
     # ---- Step 2: Phase 1 — Load filtered dataset ----
     logger.info("=" * 60)
     logger.info("Step 1/3: 載入 Phase 1 篩選後的資料集")
     logger.info("=" * 60)
 
+    if not args.skip_download:
+        AutoDownloader(config).ensure_ready()
+    else:
+        logger.info("已跳過下載檢查 (--skip-download)")
+
     loader = COCODataLoader(
         data_root=config["coco"]["data_root"],
         target_categories=args.categories,
         config=config,
+        auto_download=False,
     )
     dataset = loader.load_filtered_dataset()
 

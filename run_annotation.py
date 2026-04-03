@@ -128,7 +128,12 @@ def main() -> None:
         return
 
     print(f"\nDataset ID: {dataset_id}")
-    print(f"待處理 image_ids: {selected_image_ids}\n")
+    print(f"待處理影像數: {len(selected_image_ids)}")
+    if args.image_id or args.from_csv or not args.skip_labeled:
+        print(f"待處理 image_ids: {selected_image_ids}")
+    else:
+        print("將依序自動處理尚未完成標註的圖片。")
+    print()
 
     try:
         for image_id in selected_image_ids:
@@ -261,6 +266,8 @@ def _resolve_image_ids(
             ann_ids = set(int(v) for v in image_rows["annotation_id"].tolist())
             if not ann_ids.issubset(labeled_ann_ids):
                 pending_ids.append(image_id)
+        print(f"目前尚有 {len(pending_ids)} 張影像含未完成標註。")
+        return pending_ids
     else:
         pending_ids = all_image_ids
 

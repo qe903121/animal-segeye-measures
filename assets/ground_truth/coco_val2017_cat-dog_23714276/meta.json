@@ -1,0 +1,10 @@
+{
+  "dataset_id": "coco_val2017_cat-dog_23714276",
+  "created_at": "2026-04-03T15:08:29.262482Z",
+  "schema_version": 1,
+  "depth_rank_rule": "1 = closest to camera",
+  "annotators": [
+    "hsien"
+  ],
+  "updated_at": "2026-04-03T15:29:43.029946Z"
+}
