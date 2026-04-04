@@ -56,7 +56,7 @@ class DeepPoseDetector(BaseEyeDetector):
         self._threshold = ai_cfg.get("score_threshold", 0.3)
 
         logger.info(
-            "初始化 DeepPoseDetector... (MMPoseInferencer, alias='%s', device='%s')",
+            "Initializing DeepPoseDetector... (MMPoseInferencer, alias='%s', device='%s')",
             alias, device
         )
 
@@ -67,7 +67,7 @@ class DeepPoseDetector(BaseEyeDetector):
         self._inferencer = MMPoseInferencer(pose2d=alias, device=device)
         self._pose_model = self._inferencer.inferencer.model
         self._inference_topdown = inference_topdown
-        logger.info("DeepPoseDetector 初始化完成。")
+        logger.info("DeepPoseDetector initialized.")
 
     def detect(
         self,
@@ -103,7 +103,7 @@ class DeepPoseDetector(BaseEyeDetector):
         )
 
         if not data_samples:
-            logger.warning("MMPose 推論未回傳任何 data sample。")
+            logger.warning("MMPose inference did not return any data samples.")
             return _make_result("FAILED_NOT_FOUND")
 
         # With one bbox input, inference_topdown should return one data sample.
@@ -128,7 +128,7 @@ class DeepPoseDetector(BaseEyeDetector):
         # 14: 'R_Hip', 15: 'R_Knee', 16: 'R_B_Paw'
         if len(scores) < 2:
             logger.warning(
-                "預測關鍵點數量不足 (<2)。請確認模型使用 AP-10K 格式。"
+                "Insufficient predicted keypoints (<2). Verify the model uses AP-10K format."
             )
             return _make_result("FAILED_NOT_FOUND")
 
@@ -154,7 +154,7 @@ class DeepPoseDetector(BaseEyeDetector):
         confidence = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
 
         logger.warning(
-            "AI 偵測 (bbox=[%.1f,%.1f,%.1f,%.1f], conf=%.2f): "
+            "AI Detection (bbox=[%.1f,%.1f,%.1f,%.1f], conf=%.2f): "
             "L=(%.1f,%.1f/s:%.2f) R=(%.1f,%.1f/s:%.2f) -> %s",
             x_min, y_min, x_max, y_max,
             confidence,

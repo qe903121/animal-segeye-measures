@@ -62,9 +62,9 @@ class DatasetAssetLoader:
         instances_path = asset_dir / "instances.csv"
 
         if not manifest_path.is_file():
-            raise FileNotFoundError(f"manifest.json 不存在: {manifest_path}")
+            raise FileNotFoundError(f"manifest.json not found: {manifest_path}")
         if not instances_path.is_file():
-            raise FileNotFoundError(f"instances.csv 不存在: {instances_path}")
+            raise FileNotFoundError(f"instances.csv not found: {instances_path}")
 
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
@@ -84,7 +84,7 @@ class DatasetAssetLoader:
             kind="stable",
         ).reset_index(drop=True)
         logger.info(
-            "已載入 Dataset Asset: %s (%d images / %d instances)",
+            "Loaded Dataset Asset: %s (%d images / %d instances)",
             dataset_id,
             manifest.get("n_images", -1),
             len(instances),
@@ -147,7 +147,7 @@ def build_lightweight_dataset_from_asset(asset: DatasetAsset) -> list["ImageReco
         })
 
     logger.info(
-        "已從 Dataset Asset 建立 lightweight runtime dataset: %d 張圖片 / %d 個標註",
+        "Created lightweight runtime dataset from Dataset Asset: %d images / %d annotations",
         len(dataset),
         sum(len(record["annotations"]) for record in dataset),
     )

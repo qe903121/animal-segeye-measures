@@ -97,7 +97,7 @@ class CommandRegistry:
     def add(self, command: BaseCLICommand) -> None:
         """Register one command, enforcing unique command names."""
         if command.name in self._commands:
-            raise ValueError(f"重複的 CLI 命令名稱: {command.name}")
+            raise ValueError(f"Duplicate CLI command name: {command.name}")
         self._commands[command.name] = command
 
     def register_all(
@@ -140,18 +140,18 @@ class CLIApplication:
             "--config",
             type=str,
             default=self._default_config_path,
-            help=f"設定檔路徑 (default: {self._default_config_path})",
+            help=f"Config file path (default: {self._default_config_path})",
         )
         parser.add_argument(
             "--verbose",
             action="store_true",
-            help="啟用詳細日誌 (DEBUG level)",
+            help="Enable detailed logging (DEBUG level)",
         )
 
         subparsers = parser.add_subparsers(
             dest="command",
             title="commands",
-            description="可用的子命令",
+            description="Available sub-commands",
             metavar="<command>",
         )
         subparsers.required = True
@@ -177,7 +177,7 @@ class CLIApplication:
 
         command = getattr(args, "_command", None)
         if not isinstance(command, BaseCLICommand):
-            parser.error("未解析到有效的子命令。")
+            parser.error("No valid sub-command resolved.")
         command.execute(args, context)
 
 
@@ -205,12 +205,12 @@ def load_config(config_path: str) -> dict[str, Any]:
     """Load and return the YAML configuration file."""
     path = Path(config_path)
     if not path.is_file():
-        raise FileNotFoundError(f"設定檔不存在: {path}")
+        raise FileNotFoundError(f"Config file not found: {path}")
 
     with path.open("r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    logging.getLogger(__name__).info("已載入設定檔: %s", path)
+    logging.getLogger(__name__).info("Loaded configuration file: %s", path)
     return config
 
 

@@ -17,7 +17,7 @@ class AnnotateCommand(BaseCLICommand):
     """Interactive GT annotation command."""
 
     name = "annotate"
-    help = "Human GT 人工標註 (terminal-only workflow)"
+    help = "Human GT manual annotation (terminal-only workflow)"
 
     def get_parser_kwargs(self) -> dict[str, Any]:
         return {"parents": [dataset_id_parser()]}
@@ -28,34 +28,34 @@ class AnnotateCommand(BaseCLICommand):
             nargs="+",
             type=int,
             default=None,
-            help="僅標註指定 image_id，可傳多個",
+            help="Only annotate specified image_id(s) (multiple allowed)",
         )
         parser.add_argument(
             "--from-csv",
             type=str,
             default=None,
-            help="從 CSV 讀取 image_id 清單",
+            help="Read image_id list from CSV",
         )
         parser.add_argument(
             "--annotator",
             type=str,
             default=None,
-            help="標註者名稱 (default: 使用 config.annotation.default_annotator)",
+            help="Annotator name (default: use config.annotation.default_annotator)",
         )
         parser.add_argument(
             "--skip-labeled",
             action="store_true",
-            help="跳過 label_status=LABELED 的 annotation（SKIPPED 不算完成）",
+            help="Skip annotation if label_status=LABELED (SKIPPED does not count as completed)",
         )
         parser.add_argument(
             "--overwrite",
             action="store_true",
-            help="若 annotation 已有標註，直接覆寫",
+            help="Directly overwrite if annotation exists",
         )
         parser.add_argument(
             "--no-imshow",
             action="store_true",
-            help="不使用 cv2.imshow 顯示圖片",
+            help="Do not use cv2.imshow for image display",
         )
 
     def execute(
@@ -131,7 +131,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             use_imshow=use_imshow,
         )
     except KeyboardInterrupt:
-        print("\n已中止。")
+        print("\nAborted.")
         sys.exit(130)
     finally:
         try:
@@ -171,15 +171,15 @@ def _run_annotate(
         skip_labeled=skip_labeled,
     )
     if not selected_image_ids:
-        print("沒有需要標註的圖片，結束。")
+        print("No images need annotation, exiting.")
         return
 
     print(f"\nDataset ID: {asset.dataset_id}")
-    print(f"待處理影像數: {len(selected_image_ids)}")
+    print(f"Pending images to process: {len(selected_image_ids)}")
     if explicit_ids or from_csv or not skip_labeled:
-        print(f"待處理 image_ids: {selected_image_ids}")
+        print(f"Pending image_ids: {selected_image_ids}")
     else:
-        print("將依序自動處理尚未完成標註的圖片。")
+        print("Will automatically process unannotated images sequentially.")
     print()
 
     for image_id in selected_image_ids:
@@ -188,7 +188,7 @@ def _run_annotate(
         ].sort_values(by=["annotation_id"], kind="stable")
 
         if image_rows.empty:
-            logger.warning("image_id=%s 不在 dataset asset 中，跳過。", image_id)
+            logger.warning("image_id=%s not found in dataset asset, skipping.", image_id)
             continue
 
         image_path = resolve_image_path(
@@ -219,16 +219,16 @@ def _run_annotate(
                 and skip_labeled
                 and is_completed_label(existing)
             ):
-                print(f"[SKIP] annotation_id={annotation_id} 已有既有標註。")
+                print(f"[SKIP] annotation_id={annotation_id} already has an existing annotation.")
                 continue
 
             if existing is not None and not overwrite:
                 print(
-                    f"[INFO] annotation_id={annotation_id} 已存在標註 "
+                    f"[INFO] annotation_id={annotation_id} already contains an annotation "
                     f"(status={existing.get('label_status', '')})."
                 )
-                if not prompt_yes_no("是否覆寫這筆標註？", default=False):
-                    print("[KEEP] 保留既有標註，略過。\n")
+                if not prompt_yes_no("Overwrite this annotation?", default=False):
+                    print("[KEEP] Retained existing annotation, skipped.\n")
                     continue
 
             result = _annotate_one(
@@ -237,7 +237,7 @@ def _run_annotate(
                 used_ranks=used_ranks,
             )
             if result == ACTION_QUIT:
-                print("已收到 quit 指令，安全結束。")
+                print("Quit instruction received, exiting safely.")
                 return
             if result is None:
                 continue
@@ -252,7 +252,7 @@ def _run_annotate(
                     f"depth_rank={result['depth_rank']}\n"
                 )
             else:
-                print(f"[SAVED] annotation_id={annotation_id} 已標記為 SKIPPED\n")
+                print(f"[SAVED] annotation_id={annotation_id} marked as SKIPPED\n")
 
 
 def _annotate_one(
@@ -282,16 +282,16 @@ def _annotate_one(
 
     while True:
         print(f"\n[Annotation #{annotation_id}] {category} bbox={bbox}")
-        print("輸入格式: x,y")
-        print("特殊指令: skip / redo / quit")
+        print("Input format: x,y")
+        print("Special commands: skip / redo / quit")
 
-        left_eye = prompt_coordinate("左眼座標")
+        left_eye = prompt_coordinate("Left eye coordinates")
         if left_eye in (ACTION_QUIT, ACTION_SKIP):
             return special_result(row, annotator, left_eye)
         if left_eye == ACTION_REDO:
             continue
 
-        right_eye = prompt_coordinate("右眼座標")
+        right_eye = prompt_coordinate("Right eye coordinates")
         if right_eye in (ACTION_QUIT, ACTION_SKIP):
             return special_result(row, annotator, right_eye)
         if right_eye == ACTION_REDO:
@@ -304,10 +304,10 @@ def _annotate_one(
             continue
 
         print(
-            "確認標註: "
+            "Confirm annotation: "
             f"L={left_eye}, R={right_eye}, depth_rank={depth_rank}"
         )
-        confirm = input("按 Enter 儲存，或輸入 redo / skip / quit: ").strip().lower()
+        confirm = input("Press Enter to save, or input redo / skip / quit: ").strip().lower()
         if confirm == "":
             return {
                 "dataset_id": row["dataset_id"],
@@ -334,4 +334,4 @@ def _annotate_one(
             return special_result(row, annotator, ACTION_SKIP)
         if confirm == "quit":
             return ACTION_QUIT
-        print("無法辨識的指令，重新輸入目前 annotation。")
+        print("Unrecognized command, please re-enter current annotation.")

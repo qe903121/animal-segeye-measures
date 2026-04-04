@@ -77,7 +77,7 @@ class BaseEyeDetector(ABC):
             image = cv2.imread(str(image_path))
 
             if image is None:
-                logger.error("無法讀取圖片: %s", image_path)
+                logger.error("Failed to read image: %s", image_path)
                 for ann in record["annotations"]:
                     ann["eyes"] = {
                         "status": "FAILED_NOT_FOUND",
@@ -101,7 +101,7 @@ class BaseEyeDetector(ABC):
                 processed += 1
 
         logger.info(
-            "眼睛偵測完成: %d/%d 個標註已處理", processed, total
+            "Eye detection complete: %d/%d annotations processed", processed, total
         )
         for status, count in sorted(stats.items()):
             logger.info("  %s: %d (%.1f%%)", status, count, count / max(total, 1) * 100)

@@ -81,7 +81,7 @@ def debug_visualize(
     # Clamp sample count
     sample_count = min(sample_count, len(dataset))
     if sample_count == 0:
-        logger.warning("資料集為空，無法產生視覺化抽檢圖片。")
+        logger.warning("Dataset is empty, cannot generate visualization samples.")
         return []
 
     rng = random.Random(seed)
@@ -92,11 +92,11 @@ def debug_visualize(
     for record in samples:
         image_path = Path(record["image_path"])
         if not image_path.is_file():
-            raise FileNotFoundError(f"原圖不存在: {image_path}")
+            raise FileNotFoundError(f"Original image not found: {image_path}")
 
         image = cv2.imread(str(image_path))
         if image is None:
-            logger.error("無法讀取圖片: %s", image_path)
+            logger.error("Failed to read image: %s", image_path)
             continue
 
         overlay = image.copy()
@@ -158,10 +158,10 @@ def debug_visualize(
         out_file = output_path / f"data_{record['image_id']}.jpg"
         cv2.imwrite(str(out_file), image)
         saved_paths.append(str(out_file))
-        logger.debug("已儲存資料層視覺化圖片: %s", out_file)
+        logger.debug("Saved data layer visualization images: %s", out_file)
 
     logger.info(
-        "視覺化抽檢完成: %d/%d 張圖片已儲存至 %s",
+        "Visualization sampling complete: %d/%d images saved to %s",
         len(saved_paths),
         sample_count,
         output_path,

@@ -77,19 +77,19 @@ class PredictionAssetLoader:
         measurement_pairs_path = asset_dir / "measurement_pairs.csv"
 
         if not meta_path.is_file():
-            raise FileNotFoundError(f"run_meta.json 不存在: {meta_path}")
+            raise FileNotFoundError(f"run_meta.json not found: {meta_path}")
         if not localization_path.is_file():
             raise FileNotFoundError(
-                f"localization.csv 不存在: {localization_path}"
+                f"localization.csv not found: {localization_path}"
             )
         if not measurement_instances_path.is_file():
             raise FileNotFoundError(
-                "measurement_instances.csv 不存在: "
+                "measurement_instances.csv not found: "
                 f"{measurement_instances_path}"
             )
         if not measurement_pairs_path.is_file():
             raise FileNotFoundError(
-                f"measurement_pairs.csv 不存在: {measurement_pairs_path}"
+                f"measurement_pairs.csv not found: {measurement_pairs_path}"
             )
 
         with open(meta_path, "r", encoding="utf-8") as f:
@@ -110,7 +110,7 @@ class PredictionAssetLoader:
         )
 
         logger.info(
-            "已載入 Prediction Asset: %s (localization=%d, measurement_instances=%d, measurement_pairs=%d)",
+            "Loaded Prediction Asset: %s (localization=%d, measurement_instances=%d, measurement_pairs=%d)",
             run_id,
             len(localization),
             len(measurement_instances),
@@ -145,14 +145,14 @@ class PredictionAssetLoader:
             missing.append("schema_version")
         if missing:
             raise ValueError(
-                "Prediction Asset metadata 缺少必要欄位: "
+                "Prediction Asset metadata is missing required fields: "
                 f"{missing}"
             )
 
         meta_run_id = str(meta.get("run_id", "")).strip()
         if meta_run_id != run_id:
             raise ValueError(
-                "Prediction Asset metadata 與目錄名稱不一致: "
+                "Prediction Asset metadata directory mismatch with directory name: "
                 f"{meta_run_id} != {run_id}"
             )
 
@@ -160,12 +160,12 @@ class PredictionAssetLoader:
             schema_version = int(meta.get("schema_version"))
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                "Prediction Asset metadata 的 schema_version 非法。"
+                "Illegal schema_version in Prediction Asset metadata."
             ) from exc
 
         if schema_version != self._schema_version:
             raise ValueError(
-                "Prediction Asset schema_version 不相容: "
+                "Incompatible Prediction Asset schema_version: "
                 f"{schema_version} != {self._schema_version}"
             )
 
@@ -176,12 +176,12 @@ def apply_localization_predictions(
 ) -> list[ImageRecord]:
     """Populate ``annotation['eyes']`` from saved localization predictions."""
     if localization.empty:
-        raise ValueError("localization.csv 為空，無法回填 saved prediction。")
+        raise ValueError("localization.csv is empty, cannot backfill saved predictions.")
 
     required = {"annotation_id", "status"}
     missing = required.difference(localization.columns)
     if missing:
-        raise ValueError(f"localization.csv 缺少必要欄位: {sorted(missing)}")
+        raise ValueError(f"localization.csv is missing required fields: {sorted(missing)}")
 
     lookup = (
         localization.sort_values(by=["image_id", "annotation_id"], kind="stable")
@@ -222,7 +222,7 @@ def apply_localization_predictions(
             applied += 1
 
     logger.info(
-        "已將 saved localization prediction 回填至 runtime dataset: %d 筆，缺少 %d 筆",
+        "Backfilled saved localization prediction to runtime dataset: %d records, missing %d records",
         applied,
         missing_annotations,
     )
@@ -235,7 +235,7 @@ def _load_required_csv(path: Path, columns: list[str]) -> pd.DataFrame:
     missing = [column for column in columns if column not in df.columns]
     if missing:
         raise ValueError(
-            f"{path.name} 缺少必要欄位: {missing}"
+            f"{path.name} is missing necessary columns: {missing}"
         )
     return df[columns]
 

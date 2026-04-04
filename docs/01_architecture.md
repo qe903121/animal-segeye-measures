@@ -15,6 +15,12 @@ This project builds a reproducible baseline pipeline for animal-image metrology 
 
 The current baseline prioritizes end-to-end reproducibility and validation over solving every subproblem with a learned model.
 
+Document boundary:
+
+- this file owns stable technical concepts, formulas, and runtime contracts
+- operator setup and step-by-step command examples belong in `README.md`
+- current status, TODOs, and roadmap belong in `docs/02_active_context.md`
+
 ## 2. Scope And Boundaries
 
 ### In scope
@@ -42,63 +48,31 @@ The current baseline prioritizes end-to-end reproducibility and validation over 
 
 ## 4. System Layers
 
-### Unified CLI Lifecycle
+Diagram-heavy end-to-end flow and the current module map live primarily in
+`system_architecture.md`. This section keeps only the stable layer semantics.
 
-Responsibility:
+### Unified CLI Lifecycle
 
 - bootstrap one immutable runtime context
 - register user-facing commands
 - dispatch command execution polymorphically
 
-Primary files:
-
-- `main.py`
-- `src/utils/cli.py`
-- `src/cli/__init__.py`
-- `src/cli/cmd_*.py`
-
-Current design:
+Current contract:
 
 - `CLIApplication` owns parser construction, bootstrap, and dispatch
 - `CommandContext` encapsulates loaded config and runtime flags
-- each user-facing command is represented by one command object implementing
-  a shared `BaseCLICommand` contract
+- each user-facing command implements the shared `BaseCLICommand` contract
 - heavy domain logic stays in dedicated command modules rather than the
   top-level router
 
-Why this matters:
-
-- improves encapsulation of parser/execution responsibility
-- keeps the operator lifecycle explicit and testable
-- allows command-specific polymorphism without reintroducing multiple
-  disconnected entry scripts
-
 ### Data Domain: Dataset Layer
-
-Responsibility:
 
 - load COCO annotations
 - filter by category, count, area, overlap
 - standardize image/annotation structure
 - export reusable dataset assets
 
-Primary files:
-
-- `main.py` (`data` sub-command)
-- `src/cli/cmd_data.py`
-- `src/data/downloader.py`
-- `src/data/loader.py`
-- `src/data/asset_exporter.py`
-
-Outputs:
-
-- `output/test_samples.csv`
-- `assets/datasets/<dataset_id>/manifest.json`
-- `assets/datasets/<dataset_id>/instances.csv`
-
 ### Prediction Domain: Localization Layer
-
-Responsibility:
 
 - populate per-annotation `eyes` results
 
@@ -107,28 +81,9 @@ Strategies:
 - CV baseline: heuristic cascade/blob approach
 - AI baseline: MMPose top-down animal pose
 
-Primary files:
-
-- `main.py` (`predict`)
-- `src/cli/cmd_predict.py`
-- `src/cli/cmd_evaluate.py`
-- `src/localization/base.py`
-- `src/localization/detector_cv.py`
-- `src/localization/detector_ai.py`
-- `src/localization/factory.py`
-
 ### Prediction Domain: Measurement Layer
 
-Responsibility:
-
 - derive pixel measurements from predicted eyes
-
-Primary file:
-
-- `main.py` (`predict`)
-- `src/cli/cmd_predict.py`
-- `src/prediction/builders.py`
-- `src/evaluation/measurement.py`
 
 Outputs:
 
@@ -137,21 +92,8 @@ Outputs:
 
 ### Validation Domain: Report Layer
 
-Responsibility:
-
 - compute baseline statistics and GT-based accuracy
 - export CSVs and debug artifacts
-
-Primary files:
-
-- `main.py` (`validate`)
-- `src/cli/cmd_validate.py`
-- `src/cli/cmd_evaluate.py` (internal backend)
-- `src/evaluation/base.py`
-- `src/evaluation/engine.py`
-- `src/evaluation/localization.py`
-- `src/evaluation/measurement.py`
-- `src/evaluation/accuracy.py`
 
 ## 5. Asset Model
 
@@ -281,6 +223,9 @@ Purpose:
 - compare prediction with GT
 - generate metrics and reports
 
+See `system_architecture.md` for the current asset directory view and module
+inventory.
+
 ## 6. Core Formulas
 
 ### Inter-eye distance
@@ -386,15 +331,7 @@ Important:
 
 ### `main.py`
 
-Canonical operator entry point.
-
-Sub-commands:
-
-- `data` -> COCO filtering and Dataset Asset export
-- `annotate` -> interactive human GT annotation
-- `review` -> GT overlay export and visual inspection
-- `predict` -> localization + measurement + Prediction Asset export
-- `validate` -> GT-based validation from Dataset Asset + Prediction Asset
+Canonical operator entry point for the five user-facing commands.
 
 Global arguments:
 

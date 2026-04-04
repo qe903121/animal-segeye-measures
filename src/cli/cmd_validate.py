@@ -25,7 +25,7 @@ class ValidateCommand(BaseCLICommand):
     """GT-side validation command consuming saved prediction assets."""
 
     name = "validate"
-    help = "GT 驗證: Human GT + Prediction Asset -> accuracy report"
+    help = "GT Validation: Human GT + Prediction Asset -> accuracy report"
 
     def get_parser_kwargs(self) -> dict[str, Any]:
         return {"parents": [dataset_id_parser()]}
@@ -35,13 +35,13 @@ class ValidateCommand(BaseCLICommand):
             "--prediction-run-id",
             type=str,
             default=None,
-            help="使用既有 Prediction Asset id",
+            help="Use existing Prediction Asset ID",
         )
         parser.add_argument(
             "--output-dir",
             type=str,
             default="output/validate",
-            help="validation 報告輸出目錄 (default: output/validate)",
+            help="validation report output directory (default: output/validate)",
         )
 
     def execute(
@@ -75,10 +75,10 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     from src.utils.cli import SummaryItem, log_banner, log_summary
 
     if not args.dataset_id:
-        print("錯誤: validate 需要搭配 --dataset-id", file=sys.stderr)
+        print("Error: validate requires --dataset-id", file=sys.stderr)
         sys.exit(2)
     if not args.prediction_run_id:
-        print("錯誤: validate 需要搭配 --prediction-run-id", file=sys.stderr)
+        print("Error: validate requires --prediction-run-id", file=sys.stderr)
         sys.exit(2)
 
     try:
@@ -87,7 +87,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
         )
     except (FileNotFoundError, ValueError) as exc:
         _fail_cli(
-            "錯誤: 無法載入 Prediction Asset "
+            "Error: Cannot load Prediction Asset "
             f"'{args.prediction_run_id}': {exc}"
         )
 
@@ -96,18 +96,18 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     ).strip()
     if not prediction_dataset_id:
         _fail_cli(
-            f"錯誤: Prediction Asset {args.prediction_run_id} 缺少 dataset_id。"
+            f"Error: Prediction Asset {args.prediction_run_id} is missing dataset_id."
         )
     if args.dataset_id != prediction_dataset_id:
         _fail_cli(
-            "錯誤: --dataset-id 與 --prediction-run-id 所屬 dataset_id 不一致："
+            "Error: mismatch between --dataset-id and --prediction-run-id dataset_ids:"
             f" {args.dataset_id} != {prediction_dataset_id}",
         )
 
     try:
         dataset_asset = DatasetAssetLoader(config).load(args.dataset_id)
     except (FileNotFoundError, ValueError) as exc:
-        _fail_cli(f"錯誤: 無法載入 Dataset Asset '{args.dataset_id}': {exc}")
+        _fail_cli(f"Error: Cannot load Dataset Asset '{args.dataset_id}': {exc}")
 
     gt_root = Path(
         config.get("assets", {}).get(
@@ -118,16 +118,16 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     gt_path = gt_root / args.dataset_id / "human_labels.csv"
     if not gt_path.is_file():
         _fail_cli(
-            f"錯誤: validate 找不到對應的 Human GT: {gt_path}"
+            f"Error: validate cannot find corresponding Human GT: {gt_path}"
         )
 
-    log_banner(logger, "Validation 模式")
+    log_banner(logger, "Validation Mode")
     logger.info(
-        "Validation 模式: dataset_id=%s, prediction_run_id=%s",
+        "Validation Mode: dataset_id=%s, prediction_run_id=%s",
         args.dataset_id,
         args.prediction_run_id,
     )
-    logger.info("Validation 契約: Dataset Asset + Human GT + Prediction Asset -> Report")
+    logger.info("Validation Contract: Dataset Asset + Human GT + Prediction Asset -> Report")
 
     dataset = build_lightweight_dataset_from_asset(dataset_asset)
 
@@ -156,7 +156,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
 
     log_summary(
         logger,
-        "Validation 完成！摘要如下：",
+        "Validation Finished! Summary:",
         [
             SummaryItem("Dataset ID", args.dataset_id),
             SummaryItem("Prediction Run ID", args.prediction_run_id),
@@ -164,7 +164,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             SummaryItem("NME", nme),
             SummaryItem("RDE", rde),
             SummaryItem("Pairwise Accuracy", pair_acc),
-            SummaryItem("Total Time", f"{t_total:.2f} 秒"),
+            SummaryItem("Total Time", f"{t_total:.2f} s"),
         ],
     )
 

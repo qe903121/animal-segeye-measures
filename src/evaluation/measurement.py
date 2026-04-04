@@ -57,7 +57,7 @@ class MeasurementValidator(BaseValidator):
             measurement_pairs = prediction_asset.measurement_pairs
             if not measurement_instances.empty or not measurement_pairs.empty:
                 logger.info(
-                    "MeasurementValidator: 直接使用 saved measurement prediction assets。"
+                    "MeasurementValidator: Using saved measurement prediction assets directly."
                 )
                 return summarize_measurement_asset_frames(
                     measurement_instances,
@@ -93,7 +93,7 @@ class MeasurementValidator(BaseValidator):
                 ann_path, index=False, encoding="utf-8"
             )
             logger.info(
-                "已匯出雙眼距離 CSV: %s (%d 筆)",
+                "Exported inter-eye distance CSV: %s (%d records)",
                 ann_path,
                 len(annotation_rows),
             )
@@ -105,7 +105,7 @@ class MeasurementValidator(BaseValidator):
                 pair_path, index=False, encoding="utf-8"
             )
             logger.info(
-                "已匯出前後距離 proxy CSV: %s (%d 筆)",
+                "Exported front/back relative-depth proxy CSV: %s (%d records)",
                 pair_path,
                 len(pair_rows),
             )
@@ -113,16 +113,16 @@ class MeasurementValidator(BaseValidator):
     def _log_statistics(self, metrics: dict[str, Any]) -> None:
         """Print a concise summary of measurement outputs."""
         logger.info("=" * 60)
-        logger.info("Measurement Evaluation 結果")
+        logger.info("Measurement Evaluation Results")
         logger.info("=" * 60)
-        logger.info("  動物實體總數:           %d", metrics["total_instances"])
+        logger.info("  Total Animal Instances: %d", metrics["total_instances"])
         logger.info(
-            "  可量測雙眼距離:         %d (%.1f%%)",
+            "  Measurable inter-eye distances: %d (%.1f%%)",
             metrics["valid_eye_measurements"],
             metrics["eye_measurement_rate"],
         )
         logger.info(
-            "  可量測前後 pair:        %d/%d (%.1f%%)",
+            "  Measurable front/back pair: %d/%d (%.1f%%)",
             metrics["valid_pairs"],
             metrics["total_pairs"],
             metrics["valid_pair_rate"],
@@ -130,7 +130,7 @@ class MeasurementValidator(BaseValidator):
 
         eye_stats = metrics.get("eye_distance_stats", {})
         if eye_stats:
-            logger.info("  --- 雙眼距離統計 (px) ---")
+            logger.info("  --- Inter-eye Distance Stats (px) ---")
             logger.info(
                 "    min=%.3f  max=%.3f  mean=%.3f  median=%.3f",
                 eye_stats["min"],
@@ -141,7 +141,7 @@ class MeasurementValidator(BaseValidator):
 
         pair_stats = metrics.get("front_back_gap_stats", {})
         if pair_stats:
-            logger.info("  --- 前後距離 proxy gap 統計 (px) ---")
+            logger.info("  --- Front/Back Depth Proxy Gap Stats (px) ---")
             logger.info(
                 "    min=%.3f  max=%.3f  mean=%.3f  median=%.3f",
                 pair_stats["min"],
@@ -151,19 +151,19 @@ class MeasurementValidator(BaseValidator):
             )
 
         if metrics.get("per_category"):
-            logger.info("  --- 按類別的雙眼距離 ---")
+            logger.info("  --- Inter-eye Distance by Category ---")
             for category, cat_data in metrics["per_category"].items():
                 logger.info(
-                    "    %s: %d 筆, mean=%.3f px, median=%.3f px",
+                    "    %s: %d records, mean=%.3f px, median=%.3f px",
                     category,
                     cat_data["count"],
                     cat_data["mean_eye_distance_px"],
                     cat_data["median_eye_distance_px"],
                 )
 
-        logger.info("  --- ⚠ 量測侷限 ---")
+        logger.info("  --- ⚠ Measurement Limitations ---")
         logger.info(
-            "    前後距離目前為 monocular relative-depth proxy，"
-            "以眼距大小差異表示，不是實體世界距離。"
+            "    Front/back distance is currently a monocular relative-depth proxy,"
+            "Represented by eye distance difference; this is not real-world distance."
         )
         logger.info("=" * 60)

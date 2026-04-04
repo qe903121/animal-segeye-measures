@@ -66,15 +66,15 @@ def resolve_imshow_usage(
         return False
     if not can_attempt_imshow():
         print(
-            "[INFO] 目前環境未偵測到可用圖形顯示（DISPLAY / WAYLAND_DISPLAY）。"
+            "[INFO] No graphical display detected in the current environment (DISPLAY / WAYLAND_DISPLAY)."
         )
-        print("[INFO] 已自動停用 cv2.imshow()，改為純終端模式。")
+        print("[INFO] Automatically disabled cv2.imshow(), switched to terminal-only mode.")
         return False
 
     prompt = (
-        "是否使用 cv2.imshow() 逐張檢查標註結果？"
+        "Use cv2.imshow() to review annotation results frame by frame?"
         if mode == "review"
-        else "是否使用 cv2.imshow() 顯示圖片提示？"
+        else "Use cv2.imshow() to display image previews?"
     )
     return prompt_yes_no(prompt, default=default_enabled)
 
@@ -99,12 +99,12 @@ def show_image_preview(
     if not enabled:
         return False
     if not image_path.is_file():
-        print(f"[WARN] 原圖不存在，無法顯示: {image_path}")
+        print(f"[WARN] Original image missing, cannot display: {image_path}")
         return False
 
     image = cv2.imread(str(image_path))
     if image is None:
-        print(f"[WARN] 原圖讀取失敗，無法顯示: {image_path}")
+        print(f"[WARN] Failed to read original image, cannot display: {image_path}")
         return False
 
     canvas = image.copy()
@@ -144,10 +144,10 @@ def show_image_preview(
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.imshow(WINDOW_NAME, canvas)
         cv2.waitKey(1)
-        print("[INFO] 圖片視窗已顯示，可一邊看圖一邊在終端機輸入。")
+        print("[INFO] Image window is displayed. You can type in the terminal while viewing.")
         return True
     except cv2.error as exc:
-        print(f"[WARN] cv2.imshow() 失敗，改為純終端模式: {exc}")
+        print(f"[WARN] cv2.imshow() failed, falling back to terminal-only mode: {exc}")
         return False
 
 
@@ -204,12 +204,12 @@ def render_review_canvas(
 ) -> np.ndarray | None:
     """Render one review image with human labels overlaid on the original."""
     if not image_path.is_file():
-        print(f"[WARN] 原圖不存在，無法產生 review: {image_path}")
+        print(f"[WARN] Original image missing, cannot generate review: {image_path}")
         return None
 
     image = cv2.imread(str(image_path))
     if image is None:
-        print(f"[WARN] 原圖讀取失敗，無法產生 review: {image_path}")
+        print(f"[WARN] Failed to read original image, review skipped: {image_path}")
         return None
 
     canvas = image.copy()
@@ -374,22 +374,22 @@ def resolve_image_ids(
             ann_ids = set(int(v) for v in image_rows["annotation_id"].tolist())
             if not ann_ids.issubset(labeled_ann_ids):
                 pending_ids.append(image_id)
-        print(f"目前尚有 {len(pending_ids)} 張影像含未完成標註。")
+        print(f"Currently {len(pending_ids)} images still contain uncompleted annotations.")
         return pending_ids
     else:
         pending_ids = all_image_ids
 
     print(
-        "可直接輸入單一 image_id 或多個 image_id（用逗號分隔）；"
-        "直接按 Enter 則依序處理目前候選清單。"
+        "You can input a single image_id or multiple separated by commas;"
+        "Press Enter to process the current candidate list sequentially."
     )
-    raw = input("Image ID 清單: ").strip()
+    raw = input("Image ID list: ").strip()
     if not raw:
         return pending_ids
 
     parsed = parse_int_list(raw)
     if not parsed:
-        print("輸入無法解析，改用預設候選清單。")
+        print("Input unparsable, falling back to default candidate list.")
         return pending_ids
     return parsed
 
@@ -408,7 +408,7 @@ def resolve_review_image_ids(
 
     labeled = review_rows.loc[review_rows["label_status"].notna()]
     image_ids = sorted(int(v) for v in labeled["image_id"].unique())
-    print(f"目前共有 {len(image_ids)} 張影像含既有 human labels 可供檢查。")
+    print(f"Currently {len(image_ids)} images with existing human labels are available for review.")
     return image_ids
 
 
@@ -416,7 +416,7 @@ def load_image_ids_from_csv(csv_path: str) -> list[int]:
     """Load image ids from a CSV file."""
     path = Path(csv_path)
     if not path.is_file():
-        raise FileNotFoundError(f"CSV 不存在: {path}")
+        raise FileNotFoundError(f"CSV missing: {path}")
 
     df = pd.read_csv(path)
     if "image_id" in df.columns:
@@ -487,7 +487,7 @@ def prompt_yes_no(prompt: str, default: bool) -> bool:
             return True
         if raw in {"n", "no"}:
             return False
-        print("請輸入 y 或 n。")
+        print("Please input 'y' or 'n'.")
 
 
 def prompt_coordinate(prompt: str) -> tuple[float, float] | str:
@@ -498,7 +498,7 @@ def prompt_coordinate(prompt: str) -> tuple[float, float] | str:
         if lowered in {"quit", "skip", "redo"}:
             return f"__{lowered}__"
         if not raw:
-            print("輸入不能為空，請用 x,y 格式。")
+            print("Input cannot be empty, please use x,y format.")
             continue
 
         try:
@@ -507,7 +507,7 @@ def prompt_coordinate(prompt: str) -> tuple[float, float] | str:
             y = float(y_str)
             return round(x, 3), round(y, 3)
         except ValueError:
-            print("格式錯誤，請輸入 x,y，例如 123,45")
+            print("Format error, input x,y (e.g., 123,45)")
 
 
 def prompt_depth_rank(
@@ -516,12 +516,12 @@ def prompt_depth_rank(
 ) -> int | str:
     """Prompt for positive integer depth rank."""
     while True:
-        raw = input("深度排序 rank（1=最靠前）: ").strip()
+        raw = input("Depth ordering rank (1=Frontmost): ").strip()
         lowered = raw.lower()
         if lowered in {"quit", "skip", "redo"}:
             return f"__{lowered}__"
         if not raw:
-            print("depth_rank 不能為空。")
+            print("depth_rank cannot be empty.")
             continue
 
         try:
@@ -529,7 +529,7 @@ def prompt_depth_rank(
             if rank <= 0:
                 raise ValueError
         except ValueError:
-            print("請輸入正整數，例如 1")
+            print("Please enter a positive integer, e.g., 1")
             continue
 
         collision = [
@@ -537,8 +537,8 @@ def prompt_depth_rank(
             if ann_id != current_annotation_id and used_rank == rank
         ]
         if collision:
-            print(f"[WARN] 目前此 image 已有 annotation 使用相同 rank: {collision}")
-            if not prompt_yes_no("仍要使用這個 rank 嗎？", default=False):
+            print(f"[WARN] An annotation in this image already uses the same rank: {collision}")
+            if not prompt_yes_no("Do you still want to use this rank?", default=False):
                 continue
 
         return rank
@@ -549,28 +549,28 @@ def prompt_dataset_id(asset_loader: Any) -> str:
     dataset_ids = asset_loader.list_dataset_ids()
     if not dataset_ids:
         raise FileNotFoundError(
-            f"找不到 dataset assets。請先執行 `python main.py data`。\n"
-            f"搜尋路徑: {asset_loader.dataset_root}"
+            f"No dataset assets found. Please run `python main.py data` first.\n"
+            f"Search path: {asset_loader.dataset_root}"
         )
 
-    print("可用的 dataset assets:")
+    print("Available dataset assets:")
     for idx, dataset_id in enumerate(dataset_ids, start=1):
         print(f"  {idx}. {dataset_id}")
 
     while True:
-        raw = input("請輸入 dataset_id 或序號: ").strip()
+        raw = input("Please input dataset_id or index: ").strip()
         if not raw:
-            print("dataset_id 不能為空。")
+            print("dataset_id cannot be empty.")
             continue
         if raw.isdigit():
             index = int(raw) - 1
             if 0 <= index < len(dataset_ids):
                 return dataset_ids[index]
-            print("序號超出範圍，請重新輸入。")
+            print("Index out of bounds, please re-enter.")
             continue
         if raw in dataset_ids:
             return raw
-        print("找不到對應的 dataset_id，請重新輸入。")
+        print("Dataset ID not found, please re-enter.")
 
 
 # ── Misc ─────────────────────────────────────────────────────────────
@@ -585,7 +585,7 @@ def parse_int_list(raw: str) -> list[int]:
         try:
             values.append(int(token))
         except ValueError:
-            logger.warning("忽略無法解析的 image_id: %s", token)
+            logger.warning("Ignoring unparsable image_id: %s", token)
     return sorted(dict.fromkeys(values))
 
 

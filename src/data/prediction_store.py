@@ -231,21 +231,21 @@ class PredictionAssetStore:
 
         if existing_files and not overwrite:
             raise FileExistsError(
-                "Prediction Asset 已存在，為避免覆蓋既有實驗結果，"
-                f"請改用新的 --run-id 或明確指定覆寫。run_id={run_id}"
+                "Prediction Asset already exists. To prevent overwriting existing results,"
+                f"Please use a new --run-id or explicitly overwrite. run_id={run_id}"
             )
 
         paths.asset_dir.mkdir(parents=True, exist_ok=True)
         if existing_files and overwrite:
             logger.warning(
-                "Prediction Asset 將被覆寫: %s", paths.asset_dir
+                "Prediction Asset will be overwritten: %s", paths.asset_dir
             )
 
         with open(paths.meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
             f.write("\n")
 
-        logger.info("已初始化 Prediction Asset: %s", paths.asset_dir)
+        logger.info("Initialized Prediction Asset: %s", paths.asset_dir)
         logger.info("  run_meta: %s", paths.meta_path)
         return paths
 
@@ -258,7 +258,7 @@ class PredictionAssetStore:
         df = _to_frame(rows, LOCALIZATION_COLUMNS)
         df.to_csv(paths.localization_path, index=False, encoding="utf-8")
         logger.info(
-            "已匯出 localization prediction: %s (%d 筆)",
+            "Exported localization predictions: %s (%d records)",
             paths.localization_path,
             len(df),
         )
@@ -272,7 +272,7 @@ class PredictionAssetStore:
         df = _to_frame(rows, MEASUREMENT_INSTANCE_COLUMNS)
         df.to_csv(paths.measurement_instances_path, index=False, encoding="utf-8")
         logger.info(
-            "已匯出 measurement instances: %s (%d 筆)",
+            "Exported measurement instances: %s (%d records)",
             paths.measurement_instances_path,
             len(df),
         )
@@ -286,7 +286,7 @@ class PredictionAssetStore:
         df = _to_frame(rows, MEASUREMENT_PAIR_COLUMNS)
         df.to_csv(paths.measurement_pairs_path, index=False, encoding="utf-8")
         logger.info(
-            "已匯出 measurement pairs: %s (%d 筆)",
+            "Exported measurement pairs: %s (%d records)",
             paths.measurement_pairs_path,
             len(df),
         )

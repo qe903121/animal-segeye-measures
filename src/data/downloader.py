@@ -83,23 +83,23 @@ class AutoDownloader:
         self.data_root.mkdir(parents=True, exist_ok=True)
 
         if self._check_images_exist():
-            logger.info("影像目錄已存在，跳過下載: %s", self._images_path)
+            logger.info("Image directory exists, skipping download: %s", self._images_path)
         else:
-            logger.info("開始下載 COCO val2017 影像...")
+            logger.info("Starting val2017 image download...")
             self._download_and_extract(
                 url=self.images_url,
                 extract_to=self.data_root,
-                desc="下載 val2017 影像",
+                desc="Downloading val2017 images",
             )
 
         if self._check_annotations_exist():
-            logger.info("標註檔已存在，跳過下載: %s", self._annotations_path)
+            logger.info("Annotation file already exists, skipping download: %s", self._annotations_path)
         else:
-            logger.info("開始下載 COCO annotations...")
+            logger.info("Starting COCO annotations download...")
             self._download_and_extract(
                 url=self.annotations_url,
                 extract_to=self.data_root,
-                desc="下載 annotations",
+                desc="Downloading annotations",
                 target_member=self.annotations_file,
             )
 
@@ -156,18 +156,18 @@ class AutoDownloader:
         try:
             self._download_with_retry(url, tmp_path, desc)
 
-            logger.info("解壓縮中: %s", tmp_path.name)
+            logger.info("Extracting: %s", tmp_path.name)
             with zipfile.ZipFile(tmp_path, "r") as zf:
                 if target_member is not None:
                     self._extract_single_member(zf, target_member, extract_to)
                 else:
                     zf.extractall(extract_to)
-            logger.info("解壓縮完成 → %s", extract_to)
+            logger.info("Extraction completed -> %s", extract_to)
         finally:
             # Always clean up the temp ZIP regardless of success/failure
             if tmp_path.exists():
                 tmp_path.unlink()
-                logger.debug("已刪除暫存檔: %s", tmp_path)
+                logger.debug("Deleted temporary file: %s", tmp_path)
 
     def _extract_single_member(
         self,
@@ -192,11 +192,11 @@ class AutoDownloader:
         for member in zf.namelist():
             if Path(member).name == target_filename:
                 zf.extract(member, extract_to)
-                logger.info("已解壓目標檔案: %s", member)
+                logger.info("Extracted target file: %s", member)
                 return
         raise FileNotFoundError(
-            f"ZIP 內找不到目標檔案 '{target_filename}'。"
-            f" 可用成員: {zf.namelist()[:10]}..."
+            f"Target file '{target_filename}' not found in ZIP."
+            f" Available members: {zf.namelist()[:10]}..."
         )
 
     def _download_with_retry(self, url: str, dest: Path, desc: str) -> None:
@@ -219,7 +219,7 @@ class AutoDownloader:
         for attempt in range(1, self._max_retries + 1):
             try:
                 logger.info(
-                    "下載嘗試 %d/%d: %s", attempt, self._max_retries, url
+                    "Download attempt %d/%d: %s", attempt, self._max_retries, url
                 )
                 response = requests.get(url, stream=True, timeout=timeout)
                 response.raise_for_status()
@@ -242,7 +242,7 @@ class AutoDownloader:
                         written = f.write(chunk)
                         pbar.update(written)
 
-                logger.info("下載完成: %s (%.1f MB)", dest.name, dest.stat().st_size / 1e6)
+                logger.info("Download complete: %s (%.1f MB)", dest.name, dest.stat().st_size / 1e6)
                 return  # Success — exit retry loop
 
             except (
@@ -252,12 +252,12 @@ class AutoDownloader:
             ) as exc:
                 if attempt == self._max_retries:
                     raise ConnectionError(
-                        f"下載失敗（已重試 {self._max_retries} 次）: {url}"
+                        f"Download failed (retried {self._max_retries} times): {url}"
                     ) from exc
 
                 wait = self._retry_backoff ** attempt
                 logger.warning(
-                    "下載失敗 (嘗試 %d/%d): %s — %s 秒後重試",
+                    "Download failed (attempt %d/%d): %s — retrying in %s seconds",
                     attempt,
                     self._max_retries,
                     exc,

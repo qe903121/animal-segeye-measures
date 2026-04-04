@@ -19,14 +19,14 @@ def coco_data_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-download",
         action="store_true",
-        help="跳過 COCO 下載檢查 (已有資料時加速)",
+        help="Skip COCO download check (speeds up if already downloaded)",
     )
     parser.add_argument(
         "--categories",
         nargs="+",
         type=str,
         default=None,
-        help="目標動物類別 (default: 使用設定檔中的預設清單)",
+        help="Target animal categories (default: use list from config yaml)",
     )
     return parser
 
@@ -42,6 +42,6 @@ def dataset_id_parser() -> argparse.ArgumentParser:
         "--dataset-id",
         type=str,
         default=None,
-        help="使用既有 Dataset Asset id",
+        help="Use existing Dataset Asset id",
     )
     return parser

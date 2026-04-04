@@ -29,7 +29,7 @@ class PredictCommand(BaseCLICommand):
     """Prediction-side command producing formal Prediction Assets."""
 
     name = "predict"
-    help = "Prediction side: 眼睛定位 + 量測 + Prediction Asset 匯出"
+    help = "Prediction side: Eye Localization + Measurement + Export Prediction Asset"
 
     def get_parser_kwargs(self) -> dict[str, Any]:
         return {"parents": [dataset_id_parser()]}
@@ -38,31 +38,31 @@ class PredictCommand(BaseCLICommand):
         parser.add_argument(
             "--skip-download",
             action="store_true",
-            help="跳過 COCO 下載檢查 (已有資料時加速)",
+            help="Skip COCO download check (accelerates if already downloaded)",
         )
         parser.add_argument(
             "--method",
             type=str,
             default="ai",
             choices=["cv", "ai"],
-            help="偵測方法 (default: ai)",
+            help="Detection method (default: ai)",
         )
         parser.add_argument(
             "--output-dir",
             type=str,
             default="output/predict",
-            help="prediction-side 報告輸出目錄 (default: output/predict)",
+            help="prediction-side report output directory (default: output/predict)",
         )
         parser.add_argument(
             "--run-id",
             type=str,
             default=None,
-            help="指定 Prediction Asset 的 run_id；未提供時自動生成",
+            help="Specify Prediction Asset run_id; auto-generated if omitted",
         )
         parser.add_argument(
             "--overwrite",
             action="store_true",
-            help="允許覆寫同名 Prediction Asset run_id（預設禁止）",
+            help="Allow overwriting Prediction Asset with same run_id (forbidden by default)",
         )
 
     def execute(
@@ -94,20 +94,20 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     t_start = time.time()
 
     if not args.dataset_id:
-        print("錯誤: predict 需要搭配 --dataset-id", file=sys.stderr)
+        print("Error: predict requires --dataset-id", file=sys.stderr)
         sys.exit(2)
 
     if args.run_id:
         store = PredictionAssetStore(config)
         if store.run_exists(args.run_id) and not args.overwrite:
             _fail_cli(
-                "錯誤: Prediction Asset run_id 已存在。"
-                " 請改用新的 --run-id，或明確加入 --overwrite。"
+                "Error: Prediction Asset run_id already exists."
+                " Please use a new --run-id, or explicitly add --overwrite."
             )
 
-    log_banner(logger, "Prediction 模式")
+    log_banner(logger, "Prediction Mode")
     logger.info(
-        "Prediction 模式: dataset_id=%s, method=%s",
+        "Prediction Mode: dataset_id=%s, method=%s",
         args.dataset_id,
         args.method,
     )
@@ -124,7 +124,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
         )
     except (FileNotFoundError, ValueError) as exc:
         _fail_cli(
-            f"錯誤: 無法載入 Dataset Asset '{args.dataset_id}': {exc}"
+            f"Error: Cannot load Dataset Asset '{args.dataset_id}': {exc}"
         )
 
     engine = EvaluationEngine(config)
@@ -157,13 +157,13 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             overwrite=args.overwrite,
         )
     except FileExistsError as exc:
-        _fail_cli(f"錯誤: {exc}")
+        _fail_cli(f"Error: {exc}")
 
     t_total = time.time() - t_start
 
     log_summary(
         logger,
-        "Prediction 完成！摘要如下：",
+        "Prediction Finished! Summary:",
         [
             SummaryItem("Dataset ID", args.dataset_id),
             SummaryItem("Method", args.method),
@@ -188,7 +188,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
                     f"{measurement_metrics.get('total_pairs', 'N/A')}"
                 ),
             ),
-            SummaryItem("Total Time", f"{t_total:.2f} 秒"),
+            SummaryItem("Total Time", f"{t_total:.2f} s"),
         ],
     )
 

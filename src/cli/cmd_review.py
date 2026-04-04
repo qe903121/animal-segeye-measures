@@ -20,7 +20,7 @@ class ReviewCommand(BaseCLICommand):
     """GT review and overlay export command."""
 
     name = "review"
-    help = "Human GT 標註視覺檢查"
+    help = "Visual Review of Human GT Annotations"
 
     def get_parser_kwargs(self) -> dict[str, Any]:
         return {"parents": [dataset_id_parser()]}
@@ -31,26 +31,26 @@ class ReviewCommand(BaseCLICommand):
             nargs="+",
             type=int,
             default=None,
-            help="僅檢查指定 image_id，可傳多個",
+            help="Only check specified image_id(s) (multiple allowed)",
         )
         parser.add_argument(
             "--from-csv",
             type=str,
             default=None,
-            help="從 CSV 讀取 image_id 清單",
+            help="Read image_id list from CSV",
         )
         parser.add_argument(
             "--no-imshow",
             action="store_true",
-            help="不使用 cv2.imshow 顯示圖片",
+            help="Do not use cv2.imshow for image display",
         )
         parser.add_argument(
             "--review-output-dir",
             type=str,
             default=None,
             help=(
-                "review 模式輸出圖片目錄 "
-                "(default: 使用 config.annotation.review_output_dir)"
+                "Output image directory for review mode"
+                "(default: use config.annotation.review_output_dir)"
             ),
         )
 
@@ -115,7 +115,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             use_imshow=use_imshow,
         )
     except KeyboardInterrupt:
-        print("\n已中止。")
+        print("\nAborted.")
         sys.exit(130)
     finally:
         try:
@@ -144,7 +144,7 @@ def _run_review(
     )
 
     if labels_df.empty:
-        print("目前沒有 human labels 可供檢查，結束。")
+        print("No human labels available to review, exiting.")
         return
 
     review_rows = build_review_rows(asset.instances, labels_df)
@@ -154,15 +154,15 @@ def _run_review(
         from_csv=from_csv,
     )
     if not selected_image_ids:
-        print("沒有可供 review 的圖片，結束。")
+        print("No images available for review, exiting.")
         return
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"\nDataset ID: {asset.dataset_id}")
-    print(f"待檢查影像數: {len(selected_image_ids)}")
-    print(f"Review 輸出目錄: {output_path}\n")
+    print(f"Pending images to check: {len(selected_image_ids)}")
+    print(f"Review output directory: {output_path}\n")
 
     saved_paths: list[Path] = []
 
@@ -193,11 +193,11 @@ def _run_review(
                 cv2.imshow(WINDOW_NAME, canvas)
                 cv2.waitKey(1)
             except cv2.error as exc:
-                print(f"[WARN] cv2.imshow() 失敗，改為純輸出模式: {exc}")
+                print(f"[WARN] cv2.imshow() failed, falling back to output-only mode: {exc}")
                 use_imshow = False
             else:
-                action = input("按 Enter 看下一張，或輸入 q 結束 review: ").strip().lower()
+                action = input("Press Enter for next, or input 'q' to quit review: ").strip().lower()
                 if action == "q":
                     break
 
-    print(f"\nReview 完成，已輸出 {len(saved_paths)} 張圖片到 {output_path}")
+    print(f"\nReview completed. Output {len(saved_paths)} images to {output_path}")

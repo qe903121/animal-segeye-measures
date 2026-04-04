@@ -113,9 +113,9 @@ class DatasetAssetExporter:
             instances_path, index=False, encoding="utf-8"
         )
 
-        logger.info("已匯出 Dataset Asset: %s", asset_dir)
+        logger.info("Exported Dataset Asset: %s", asset_dir)
         logger.info("  manifest:  %s", manifest_path)
-        logger.info("  instances: %s (%d 筆)", instances_path, len(rows))
+        logger.info("  instances: %s (%d records)", instances_path, len(rows))
 
         return DatasetAssetInfo(
             dataset_id=resolved_dataset_id,

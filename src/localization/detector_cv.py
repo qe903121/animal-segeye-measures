@@ -74,9 +74,9 @@ class HeuristicCVDetector(BaseEyeDetector):
         self._eye_cascade = cv2.CascadeClassifier(eye_path)
 
         if self._cat_face_cascade.empty():
-            logger.warning("無法載入貓臉 Cascade: %s", cat_face_path)
+            logger.warning("Failed to load cat face Cascade: %s", cat_face_path)
         if self._eye_cascade.empty():
-            logger.warning("無法載入眼睛 Cascade: %s", eye_path)
+            logger.warning("Failed to load eye Cascade: %s", eye_path)
 
         # --- Cascade parameters ---
         cascade_cfg = eye_cfg.get("cascade", {})
@@ -115,7 +115,7 @@ class HeuristicCVDetector(BaseEyeDetector):
         self._min_mask_pixels: int = eye_cfg.get("min_head_pixels", 400)
 
         logger.info(
-            "HeuristicCVDetector 初始化 (Mask-Bounded Global Cascade): "
+            "HeuristicCVDetector initialization (Mask-Bounded Global Cascade): "
             "CLAHE(clip=%.1f, tile=%d), angle_max=%.0f°",
             self._clahe_clip,
             self._clahe_tile,
@@ -189,7 +189,7 @@ class HeuristicCVDetector(BaseEyeDetector):
         )
 
         logger.debug(
-            "偵測成功 (stage=%s, conf=%.2f): L=%s R=%s",
+            "Detection successful (stage=%s, conf=%.2f): L=%s R=%s",
             stage_used, confidence, left_eye, right_eye,
         )
 

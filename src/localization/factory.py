@@ -33,12 +33,12 @@ def create_detector(method: str, config: dict) -> BaseEyeDetector:
     method = method.lower().strip()
 
     if method == "cv":
-        logger.info("使用偵測策略: HeuristicCVDetector (傳統 CV)")
+        logger.info("Using detection strategy: HeuristicCVDetector (Traditional CV)")
         return HeuristicCVDetector(config)
     elif method == "ai":
-        logger.info("使用偵測策略: DeepPoseDetector (MMPose AP-10K)")
+        logger.info("Using detection strategy: DeepPoseDetector (MMPose AP-10K)")
         return DeepPoseDetector(config)
     else:
         raise ValueError(
-            f"未知的偵測方法: '{method}'。支援的方法: 'cv', 'ai'"
+            f"Unknown detection method: '{method}'. Supported methods: 'cv', 'ai'"
         )

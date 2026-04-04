@@ -81,14 +81,14 @@ class EvaluationEngine:
         if not (isinstance(validator_cls, type)
                 and issubclass(validator_cls, BaseValidator)):
             raise TypeError(
-                f"'{validator_cls}' 不是 BaseValidator 的子類別。"
+                f"'{validator_cls}' is not a subclass of BaseValidator."
             )
         if task_name in self._registry:
             raise ValueError(
-                f"任務名稱 '{task_name}' 已被註冊。"
+                f"Task name '{task_name}' is already registered."
             )
         self._registry[task_name] = validator_cls
-        logger.debug("已註冊驗證器: %s → %s", task_name, validator_cls.__name__)
+        logger.debug("Registered validator: %s -> %s", task_name, validator_cls.__name__)
 
     @property
     def registered_tasks(self) -> list[str]:
@@ -126,8 +126,8 @@ class EvaluationEngine:
         if task_name not in self._registry:
             available = ", ".join(self.registered_tasks) or "(none)"
             raise KeyError(
-                f"未知的任務名稱: '{task_name}'。"
-                f" 已註冊: {available}"
+                f"Unknown task name: '{task_name}'."
+                f" Registered: {available}"
             )
 
         validator_cls = self._registry[task_name]
@@ -135,7 +135,7 @@ class EvaluationEngine:
         task_output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info("=" * 60)
-        logger.info("開始驗證: %s (%s)", task_name, validator_cls.__name__)
+        logger.info("Starting Validation: %s (%s)", task_name, validator_cls.__name__)
         logger.info("=" * 60)
 
         # Step 1: Instantiate
@@ -153,7 +153,7 @@ class EvaluationEngine:
         )
 
         logger.info(
-            "驗證完成: %s → 報告輸出至 %s", task_name, task_output_dir
+            "Validation completed: %s -> report exported to %s", task_name, task_output_dir
         )
         return metrics
 
@@ -177,7 +177,7 @@ class EvaluationEngine:
             registered validator.
         """
         if not self._registry:
-            logger.warning("沒有已註冊的驗證器，跳過。")
+            logger.warning("No registered validators, skipping.")
             return {}
 
         all_metrics: dict[str, dict[str, Any]] = {}
@@ -192,7 +192,7 @@ class EvaluationEngine:
                 )
                 all_metrics[task_name] = metrics
             except Exception:
-                logger.exception("驗證器 '%s' 執行失敗。", task_name)
+                logger.exception("Validator '%s' execution failed.", task_name)
                 all_metrics[task_name] = {"error": True}
 
         return all_metrics

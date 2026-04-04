@@ -178,9 +178,9 @@ class COCODataLoader:
         ann_path = self.data_root / "annotations" / self._ann_file
         if not ann_path.is_file():
             raise FileNotFoundError(
-                f"標註檔不存在: {ann_path}。請確認下載是否成功。"
+                f"Annotation file not found: {ann_path}. Verify download succeeded."
             )
-        logger.info("載入 COCO 標註: %s", ann_path)
+        logger.info("Loading COCO annotations: %s", ann_path)
         self.coco = COCO(str(ann_path))
 
         # Build category ID ↔ name mapping
@@ -190,7 +190,7 @@ class COCODataLoader:
         self._target_cat_ids = list(self._cat_id_to_name.keys())
 
         logger.info(
-            "目標類別已解析: %s (共 %d 類)",
+            "Target categories parsed: %s (total %d classes)",
             self._cat_id_to_name,
             len(self._cat_id_to_name),
         )
@@ -223,7 +223,7 @@ class COCODataLoader:
             candidate_img_ids.update(self.coco.getImgIds(catIds=[cat_id]))
 
         logger.info(
-            "候選圖片數 (含任一目標類別): %d", len(candidate_img_ids)
+            "Candidate images (contain any target category): %d", len(candidate_img_ids)
         )
 
         # Step 2-6: Filter, decode, overlap check, and build records
@@ -296,14 +296,14 @@ class COCODataLoader:
             )
 
         logger.info(
-            "過濾完成: %d 張圖片通過 / %d 張被排除 (共 %d 張候選)",
+            "Filtering complete: %d images passed / %d excluded (out of %d candidates)",
             len(dataset),
             skipped,
             len(candidate_img_ids),
         )
         if overlap_removed_total > 0:
             logger.info(
-                "重疊過濾: 共移除 %d 個高遮擋標註 (閾值: %.0f%%)",
+                "Overlap filter: Removed %d highly occluded annotations (threshold: %.0f%%)",
                 overlap_removed_total,
                 self._max_overlap_ratio * 100,
             )
@@ -345,7 +345,7 @@ class COCODataLoader:
 
         df = pd.DataFrame(rows)
         df.to_csv(output, index=False, encoding="utf-8")
-        logger.info("已匯出基準索引: %s (%d 筆)", output, len(df))
+        logger.info("Exported baseline index: %s (%d records)", output, len(df))
 
     def load_dataset_from_instances(
         self,
@@ -368,12 +368,12 @@ class COCODataLoader:
         missing = required_columns - set(instances.columns)
         if missing:
             raise ValueError(
-                "instances.csv 缺少必要欄位: "
+                "instances.csv is missing necessary columns: "
                 f"{sorted(missing)}"
             )
 
         if instances.empty:
-            logger.warning("instances.csv 為空，回傳空資料集。")
+            logger.warning("instances.csv is empty, returning empty dataset.")
             return []
 
         dataset: list[ImageRecord] = []
@@ -386,7 +386,7 @@ class COCODataLoader:
             image_id_int = int(image_id)
             img_infos = self.coco.loadImgs([image_id_int])
             if not img_infos:
-                logger.warning("image_id=%d 不存在於 COCO 標註中，跳過。", image_id_int)
+                logger.warning("image_id=%d not found in COCO labels, skipping.", image_id_int)
                 continue
 
             img_info = img_infos[0]
@@ -403,7 +403,7 @@ class COCODataLoader:
             ]
             if missing_ann_ids:
                 logger.warning(
-                    "image_id=%d 有 %d 筆 annotation 不存在於 COCO 標註中: %s",
+                    "image_id=%d has %d annotations absent from COCO labels: %s",
                     image_id_int,
                     len(missing_ann_ids),
                     missing_ann_ids,
@@ -432,7 +432,7 @@ class COCODataLoader:
                 )
 
             if not annotations:
-                logger.warning("image_id=%d 無可用 annotations，跳過。", image_id_int)
+                logger.warning("image_id=%d has no usable annotations, skipping.", image_id_int)
                 continue
 
             image_path = str(
@@ -449,7 +449,7 @@ class COCODataLoader:
 
         total_annotations = sum(len(record["annotations"]) for record in dataset)
         logger.info(
-            "已從 Dataset Asset 重建資料集: %d 張圖片 / %d 個標註",
+            "Reconstructed dataset from Dataset Asset: %d images / %d annotations",
             len(dataset),
             total_annotations,
         )
@@ -486,8 +486,8 @@ class COCODataLoader:
         if missing:
             all_cats = [c["name"] for c in self.coco.loadCats(self.coco.getCatIds())]
             raise ValueError(
-                f"以下類別在 COCO 資料集中不存在: {missing}。"
-                f" 可用類別: {all_cats}"
+                f"The following categories do not exist in the COCO dataset: {missing}."
+                f" Available classes: {all_cats}"
             )
 
         return cat_id_map
@@ -586,8 +586,8 @@ class COCODataLoader:
                     remove_indices.add(victim)
                     victim_ann = decoded[victim][0]
                     logger.debug(
-                        "圖片 %d: 移除高遮擋標註 #%d (%s), "
-                        "重疊率 %.1f%% > %.0f%%",
+                        "Image %d: Removing highly occluded annotation #%d (%s), "
+                        "Overlap ratio %.1f%% > %.0f%%",
                         image_id,
                         victim_ann["id"],
                         self._cat_id_to_name.get(
@@ -634,7 +634,7 @@ class COCODataLoader:
             rle = seg
         else:
             raise TypeError(
-                f"不支援的 segmentation 格式: {type(seg)} "
+                f"Unsupported segmentation format: {type(seg)} "
                 f"(annotation ID: {annotation['id']})"
             )
 

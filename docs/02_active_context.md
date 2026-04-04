@@ -69,121 +69,41 @@ Current sample GT status:
 - 16 `LABELED`
 - 2 `SKIPPED`
 
-## 3. Current CLI Contracts
+## 3. Current Operator Contract
 
-### Canonical operator flow
+Primary owner:
+
+- `README.md` is the only operator-facing workflow guide
+
+Canonical operator flow:
 
 ```text
 data -> annotate / review -> predict -> validate
 ```
 
-### `main.py data`
+Active contract snapshot:
 
-```bash
-python main.py --config config/config.yaml data --skip-download
-```
+- `data`
+  - creates or refreshes a Dataset Asset
+- `annotate` / `review`
+  - create and inspect Human GT on top of a frozen Dataset Asset
+- `predict`
+  - consumes Dataset Asset and produces Prediction Asset
+  - owns localization + measurement
+  - conceptual boundary:
+    - `A -> C`
+- `validate`
+  - consumes Dataset Asset + Human GT + Prediction Asset
+  - produces GT-based reports only
+  - conceptual boundary:
+    - `A + B + C -> D`
+  - must not rerun detector inference
 
-Use when:
+Internal note:
 
-- creating a new Dataset Asset
-- changing categories or filtering rules
-
-### `main.py annotate`
-
-```bash
-python main.py annotate --dataset-id <dataset_id> --annotator <name> --skip-labeled --no-imshow
-```
-
-Use when:
-
-- building Human GT
-- resuming labeling on a frozen dataset
-
-### `main.py review`
-
-```bash
-python main.py review --dataset-id <dataset_id> --no-imshow
-```
-
-Use when:
-
-- reviewing saved GT overlays
-- checking skipped instances, eye points, and depth ranks
-
-### `main.py predict`
-
-```bash
-python main.py predict --dataset-id <dataset_id> --method ai --skip-download
-```
-
-Use when:
-
-- running all prediction-side work from a frozen Dataset Asset
-- generating:
-  - localization output
-  - measurement output
-  - formal Prediction Asset
-
-Key contract:
-
-- input: Dataset Asset
-- output: Prediction Asset
-- conceptual boundary:
-  - `A -> C`
-- `measurement` belongs here, not in GT validation
-
-### `main.py validate`
-
-```bash
-python main.py validate --dataset-id <dataset_id> --prediction-run-id <run_id>
-```
-
-Use when:
-
-- comparing one saved Prediction Asset against Human GT
-- producing GT-based reports such as:
-  - `NME` (unordered eye pair aware)
-  - `RDE`
-  - pairwise ordering accuracy
-
-Key contract:
-
-- input:
-  - Dataset Asset
-  - Human GT Asset
-  - Prediction Asset
-- output:
-  - validation report
-- conceptual boundary:
-  - `A + B + C -> D`
-- execution boundary:
-  - no COCO download check
-  - no raw COCO annotation reload
-  - no detector inference rerun
-
-### Internal advanced backend
-
-- `src/cli/cmd_evaluate.py` still exists as a task-centric backend module
-- it is no longer the primary operator-facing CLI contract
-- user-facing docs should teach `predict` / `validate`, not validator task names
-
-## 3.1 Implemented UX Convergence: `predict` then `validate`
-
-Why this matters:
-
-- prediction-side work and GT-based validation now have separate operator entry points
-- users no longer need to learn internal validator task names first
-- the system now matches the asset model more directly:
-  - `predict` = `A -> C`
-  - `validate` = `A + B + C -> D`
-
-Operator-facing interpretation:
-
-- `measurement` is prediction output
-- GT is not required to create:
-  - `measurement_instances.csv`
-  - `measurement_pairs.csv`
-- GT is required only when validating those outputs
+- `src/cli/cmd_evaluate.py` still exists as an internal task-centric backend
+- it is not part of the primary operator mental model
+- stable CLI examples should stay in `README.md`, not here
 
 ## 4. Verified Current Behavior
 
@@ -200,12 +120,7 @@ Operator-facing interpretation:
 
 ### Verified evaluation facts
 
-- `main.py --help` exposes exactly five user-facing commands:
-  - `data`
-  - `annotate`
-  - `review`
-  - `predict`
-  - `validate`
+- `main.py --help` exposes exactly five user-facing commands
 - the canonical CLI lifecycle now follows:
   - `main.py` -> `CLIApplication` -> `CommandContext` -> concrete command object
 - `main.py predict` runs localization + measurement and exports:
@@ -231,78 +146,71 @@ Operator-facing interpretation:
   export once via `predict`, then re-run GT-based checking via `validate`
   without rerunning detector inference
 
-### Detailed acceptance checklist: Prediction Asset Layer end-state
+### Acceptance checklist: current regression contract
 
-Goal:
+Purpose:
 
-- prove that the formal `C` layer can be exported once and then reused by
-  evaluators without re-running detector inference
-- prove that the engine / validator lifecycle now formally accepts
-  `prediction_asset`, instead of relying only on runtime config mutation
+- keep the current `Prediction Asset Layer` and `predict -> validate` path
+  stable during delivery work
 
 Preconditions:
 
-- frozen Dataset Asset exists
-  - example: `coco_val2017_cat-dog_23714276`
-- corresponding Human GT exists for accuracy validation
-  - example:
-    `assets/ground_truth/coco_val2017_cat-dog_23714276/human_labels.csv`
+- one frozen Dataset Asset exists
+- matching Human GT exists for that dataset
 
-Acceptance procedure:
+Regression path:
 
-1. Export one formal Prediction Asset from a real dataset run
-   Command:
-   `python main.py predict --dataset-id coco_val2017_cat-dog_23714276 --method cv --skip-download --run-id <run_id> --output-dir <tmp_export_dir>`
-   Must verify:
-   - run exits successfully
-   - `assets/predictions/<run_id>/run_meta.json` exists
-   - `assets/predictions/<run_id>/localization.csv` exists
-   - `assets/predictions/<run_id>/measurement_instances.csv` exists
-   - `assets/predictions/<run_id>/measurement_pairs.csv` exists
-   - log includes:
-     - `Prediction Asset 匯出完成`
+1. export one Prediction Asset via `main.py predict`
+2. validate that saved asset via `main.py validate`
 
-2. Re-run GT-based validation from the saved Prediction Asset
-   Command:
-   `python main.py validate --dataset-id coco_val2017_cat-dog_23714276 --prediction-run-id <run_id> --output-dir <tmp_acc_dir>`
-   Must verify:
-   - run exits successfully
-   - log includes:
-     - `Validation 契約: Dataset Asset + Human GT + Prediction Asset -> Report`
-     - `已從 Dataset Asset 建立 lightweight runtime dataset`
-     - `AccuracyValidator: 優先使用 saved measurement prediction assets 做 RDE / pairwise 評估。`
-   - output CSVs exist:
-     - `<tmp_acc_dir>/accuracy/eval_accuracy_instances.csv`
-     - `<tmp_acc_dir>/accuracy/eval_accuracy_pairs.csv`
+Must verify:
 
-3. Lifecycle contract check
-   Must verify in code:
-   - `BaseValidator.evaluate(..., prediction_asset=None)`
-   - `BaseValidator.generate_report(..., prediction_asset=None)`
-   - `EvaluationEngine.run(..., prediction_asset=None)`
-   - `EvaluationEngine.run_all(..., prediction_asset=None)`
-   - `LocalizationValidator`, `MeasurementValidator`, and `AccuracyValidator`
-     all accept the formal `prediction_asset` parameter
+- prediction export succeeds and writes:
+  - `run_meta.json`
+  - `localization.csv`
+  - `measurement_instances.csv`
+  - `measurement_pairs.csv`
+- validation succeeds from saved assets only
+- `main.py validate` does not rerun detector inference
+- `main.py validate` does not depend on raw COCO reload in the user-facing path
+- `LocalizationValidator`, `MeasurementValidator`, and `AccuracyValidator`
+  still consume formal `prediction_asset` input through the shared lifecycle
+- GT-based outputs still include:
+  - `eval_accuracy_instances.csv`
+  - `eval_accuracy_pairs.csv`
 
-4. Final acceptance decision
-   The Prediction Asset Layer can be treated as functionally complete for the
-   current project scope when all of the following are true:
-   - export contracts are stable
-   - localization evaluation reads saved localization assets directly
-   - measurement evaluation reads saved measurement assets directly
-   - GT-based accuracy uses saved measurement assets for `RDE` and pairwise
-     evaluation
-   - `main.py validate` requires no COCO download checks and no raw COCO
-     reloads
-   - remaining runtime-dataset construction in the validation path is only a
-     lightweight Dataset Asset rehydration for report context, not a carrier
-     of prediction generation
+Interpretation:
+
+- treat this as the working regression baseline for current delivery work
+- if behavior changes, re-run this path before updating docs or expanding scope
 
 ## 5. Delivery TODO
 
 ### P0: Must-finish before project handoff
 
-1. Keep the current `main.py` CLI contract stable:
+1. Execute a repo-level doc sync & consolidation pass:
+   - current primary docs are too large and partially overlap:
+     - `AGENTS.md` (~44 lines)
+     - `README.md` (~216 lines)
+     - `docs/01_architecture.md` (~457 lines)
+     - `docs/02_active_context.md` (~433 lines)
+     - `docs/03_dev_journal.md` (~356 lines)
+     - `system_architecture.md` (~198 lines)
+   - define and enforce one clear owner per documentation surface:
+     - `AGENTS.md` = short entry point only
+     - `README.md` = user-facing setup, workflow, and outputs
+     - `docs/01_architecture.md` = stable technical source of truth
+     - `docs/02_active_context.md` = current status, P0/P1/P2, roadmap, acceptance
+     - `docs/03_dev_journal.md` = historical notes only
+     - `system_architecture.md` = diagram-centric summary only
+   - remove duplicated CLI walkthroughs, repeated asset explanations, and repeated
+     methodology prose across README / architecture / active context
+   - define explicit "do not duplicate" rules:
+     - command examples live primarily in `README.md`
+     - stable formulas live primarily in `docs/01_architecture.md`
+     - current TODO / roadmap live primarily in `docs/02_active_context.md`
+     - history and migration notes live primarily in `docs/03_dev_journal.md`
+2. Keep the current `main.py` CLI contract stable:
    - treat `main.py` as the canonical operator entry point
    - keep current subcommands stable:
      - `data`
@@ -314,28 +222,29 @@ Acceptance procedure:
      - `--config`
      - `--verbose`
    - keep docs, diagrams, and reports aligned with the implemented command layout
-2. Keep the current `Prediction Asset Layer` contracts stable:
+3. Keep the current `Prediction Asset Layer` contracts stable:
    - do not expand scope unless a delivery blocker appears
    - treat the acceptance checklist above as the regression contract
    - if behavior changes, re-run the full acceptance procedure
-3. Write `README.md` end to end:
+4. Keep `README.md` delivery-ready and aligned with the repo:
    - project overview
    - technical stack
    - local run steps
    - Docker / devcontainer usage
    - CLI entry points
    - output artifacts
-4. Keep the system architecture diagram aligned with the current `A/B/C/D` layer model.
-5. Finish the methodology write-up:
+   - current API / accounts wording
+5. Keep the system architecture diagram aligned with the current `A/B/C/D` layer model.
+6. Finish the methodology write-up:
    - contour source and current limitation
    - CV vs AI localization framing
    - front/back proxy definition and boundary
    - validation formulas and interpretation
-6. Backfill real baseline results into project docs:
+7. Backfill real baseline results into project docs:
    - localization
    - measurement
    - accuracy
-7. Normalize the evaluation narrative so baseline and GT-based reporting are explained consistently.
+8. Normalize the evaluation narrative so baseline and GT-based reporting are explained consistently.
 
 ### P1: Delivery support items
 
@@ -358,133 +267,49 @@ Goal:
 
 Focus:
 
-- canonical CLI stabilization and documentation cleanup
-- documentation completeness
+- documentation consolidation across README / architecture / active context
+- keep the 5-command operator model stable
+- keep `predict -> validate` and Prediction Asset contracts stable
 - real result backfill
 - evaluation story consistency
 - clear statement of current scope and limits
 
-### 6.1.a Unified CLI roadmap
+Current execution themes:
 
-Goal:
+1. Documentation consolidation
+   - keep `AGENTS.md` as a short index
+   - keep `README.md` as the only primary operator workflow guide
+   - keep `docs/01_architecture.md` as the only primary owner of stable
+     formulas and contracts
+   - keep this file focused on status, acceptance, TODOs, and roadmap
+   - prevent any major topic from being fully re-explained in three or more
+     active docs
 
-- stabilize and document the implemented unified CLI around `main.py`
+2. Operator contract stability
+   - keep `main.py` as the canonical entry point
+   - keep user-facing commands stable:
+     - `data`
+     - `annotate`
+     - `review`
+     - `predict`
+     - `validate`
+   - keep `cmd_evaluate.py` internal and avoid reintroducing task-centric
+     examples into user-facing docs
 
-Current state:
-
-- `main.py` is the preferred operator entry point
-- `main.py` currently exposes:
-  - `data`
-  - `annotate`
-  - `review`
-  - `predict`
-  - `validate`
-- legacy `run_*.py` entry scripts have been removed from the repository
-- command ownership still remains in module code under `src/cli/` and the
-  underlying feature packages; `main.py` is only the router
-- `src/cli/cmd_evaluate.py` remains as an internal advanced backend, not the
-  operator-facing mental model
-
-Remaining cleanup:
-
-1. Documentation phase
-   - keep README, docs, and diagrams aligned with the 5-command model
-   - avoid reintroducing task-centric examples into user-facing guidance
-2. Backend stability phase
-   - keep the internal `cmd_evaluate.py` helpers stable while user-facing
-     commands remain `predict` / `validate`
-
-Non-goals:
-
-- do not redesign all argument names during delivery-critical work
-- do not move core business logic into `main.py`
-- do not perform a large CLI-framework rewrite
-
-### 6.1.b Predict / Validate convergence roadmap
-
-Goal:
-
-- keep the implemented `predict -> validate` UX stable and understandable
-
-Status:
-
-- user-facing convergence is implemented
-- prediction-side work now lives under `main.py predict`
-- GT-based checking now lives under `main.py validate`
-- the internal task-centric backend is still available only as implementation
-  support
-
-Guiding principles:
-
-1. use asset transitions as the primary UX
-   - `data` creates Dataset Asset
-   - `annotate` / `review` create and inspect Human GT
-   - `predict` creates Prediction Asset
-   - `validate` compares GT against Prediction Asset
-2. keep `measurement` on the prediction side
-   - measurement is derived from predicted eyes
-   - GT is only needed when validating measurement accuracy
-3. keep task-centric evaluation internal
-4. avoid schema churn while changing the operator interface
-
-Implemented command model:
-
-```bash
-python main.py data ...
-python main.py annotate ...
-python main.py review ...
-python main.py predict --dataset-id <dataset_id> --method ai --skip-download
-python main.py validate --dataset-id <dataset_id> --prediction-run-id <run_id>
-```
-
-Planned meaning:
-
-- `predict`
-  - runs localization + measurement
-  - always produces a Prediction Asset
-  - may also emit prediction-side summaries / debug outputs
-
-- `validate`
-  - requires Human GT
-  - consumes a saved Prediction Asset
-  - runs GT-based checks such as:
-    - NME
-    - RDE
-    - pairwise ordering accuracy
-
-Current stabilization steps:
-
-1. Keep `predict` output contract stable
-   - formal Prediction Asset files remain canonical
-   - no hidden GT dependency is introduced into prediction generation
-
-2. Keep `validate` input contract strict
-   - require:
+3. Predict / validate boundary stability
+   - keep `measurement` on the prediction side
+   - keep `predict` free of Human GT dependency
+   - keep `validate` strict about:
      - `dataset_id`
-     - Human GT
+     - matching Human GT
      - `prediction_run_id`
-   - keep fail-fast rules explicit
+   - keep `validate` free of detector inference reruns
 
-3. Keep docs aligned with the operator mental model
-   - primary examples use:
-     `data -> annotate/review -> predict -> validate`
-   - task-centric language stays in architecture/internal sections only
+Non-goals during this phase:
 
-Acceptance criteria:
-
-1. `predict` can run on a frozen Dataset Asset without Human GT
-2. `predict` always exports a formal Prediction Asset
-3. `validate` fails fast if GT or `prediction_run_id` is missing
-4. `validate` does not rerun detector inference
-5. README and operator examples teach `predict -> validate`, not task names
-6. internal validator/task decomposition can still exist without leaking into
-   the primary operator UX
-
-Non-goals:
-
-- do not redesign the Prediction Asset schema for this change alone
-- do not rewrite validators just to rename commands
-- do not re-promote task-centric `evaluate --task ...` into user-facing docs
+- no large CLI framework rewrite
+- no broad argument renaming
+- no Prediction Asset schema churn unless a delivery blocker appears
 
 ### 6.2 ONNX roadmap
 
@@ -565,19 +390,12 @@ Current state:
 - runtime dataset rehydration now exists mainly for debug/context support, not
   as the primary prediction carrier
 
-Target state:
-
-- keep the current export / reload / evaluator-reuse contract stable
-- use the current acceptance checklist as the regression baseline
-- avoid unnecessary schema churn before delivery
-
 Current focus:
 
 1. keep schema files and column contracts stable
-2. treat the acceptance checklist in section 4 as the regression contract
-3. prefer incremental reporting/documentation cleanup over new prediction
-   features
-4. revisit dedicated prediction-specific CLI only after delivery
+2. use the acceptance checklist in section 4 as the regression baseline
+3. prefer reporting and documentation cleanup over new prediction features
+4. avoid broad refactors until delivery-critical docs and results are settled
 
 ### 6.5 Longer-term architecture convergence
 

@@ -241,7 +241,7 @@ class AccuracyValidator(BaseValidator):
 
         if not dataset_id:
             logger.error(
-                "AccuracyValidator: 未提供 dataset_id，也無法從 Prediction Asset metadata 推得。"
+                "AccuracyValidator: dataset_id not provided, and cannot be inferred from Prediction Asset metadata."
             )
             return {"error": True}
 
@@ -249,10 +249,10 @@ class AccuracyValidator(BaseValidator):
 
         gt_path = self.gt_root / self.dataset_id / "human_labels.csv"
         if not gt_path.exists():
-            logger.error("AccuracyValidator: 找不到對應的 GT 檔案: %s", gt_path)
+            logger.error("AccuracyValidator: Cannot find corresponding GT file: %s", gt_path)
             return {"error": True}
 
-        logger.info("載入 Human GT: %s", gt_path)
+        logger.info("Loading Human GT: %s", gt_path)
         gt_df = pd.read_csv(gt_path)
         gt_df, gt_stats = self._prepare_gt_frame(gt_df)
         localization_lookup: dict[int, dict[str, Any]] = {}
@@ -270,13 +270,13 @@ class AccuracyValidator(BaseValidator):
             )
             if measurement_instance_lookup or measurement_pair_lookup:
                 logger.info(
-                    "AccuracyValidator: 優先使用 saved measurement prediction assets 做 RDE / pairwise 評估。"
+                    "AccuracyValidator: Prioritizing saved measurement prediction assets for RDE / pairwise evaluation."
                 )
 
         try:
             gt_lookup = gt_df.set_index("annotation_id").to_dict("index")
         except ValueError as exc:
-            logger.error("AccuracyValidator: GT annotation_id 無法建立唯一索引: %s", exc)
+            logger.error("AccuracyValidator: unable to create unique index for GT annotation_id: %s", exc)
             return {"error": True}
 
         instance_results: list[dict[str, Any]] = []
@@ -644,10 +644,10 @@ class AccuracyValidator(BaseValidator):
         logger.info("=" * 60)
         logger.info("=== Eye Localization Accuracy ===")
         logger.info(
-            "  標註數:          %d\n"
-            "  有 GT 數:        %d\n"
-            "  GT 可用數:       %d (GT=LABELED 且座標完整)\n"
-            "  可比對數:        %d (pred=SUCCESS ∩ GT usable)\n"
+            "  Annotations:     %d\n"
+            "  With GT:         %d\n"
+            "  Usable GT:       %d (GT=LABELED and complete coordinates)\n"
+            "  Comparable subset: %d (pred=SUCCESS ∩ GT usable)\n"
             "  Coverage:        %5.1f%%",
             metrics.get("total_annotations", 0),
             metrics.get("annotations_with_gt", 0),
@@ -656,7 +656,7 @@ class AccuracyValidator(BaseValidator):
             metrics.get("instance_coverage_percent", 0.0),
         )
         logger.info(
-            "  排除統計:        NO_GT=%d, GT_SKIPPED=%d, GT_INVALID=%d, PRED_NOT_SUCCESS=%d",
+            "  Exclusion stats: NO_GT=%d, GT_SKIPPED=%d, GT_INVALID=%d, PRED_NOT_SUCCESS=%d",
             metrics.get("excluded_no_gt", 0),
             metrics.get("excluded_gt_skipped", 0),
             metrics.get("excluded_gt_invalid", 0),
@@ -664,14 +664,14 @@ class AccuracyValidator(BaseValidator):
         )
         if metrics.get("gt_duplicate_rows_removed", 0):
             logger.info(
-                "  GT 清理:         duplicate_rows_removed=%d, invalid_labeled_rows=%d",
+                "  GT Cleanup:      duplicate_rows_removed=%d, invalid_labeled_rows=%d",
                 metrics.get("gt_duplicate_rows_removed", 0),
                 metrics.get("gt_invalid_labeled_rows", 0),
             )
 
         nme_m = metrics.get("nme_mean")
         if nme_m is not None:
-            logger.info("  --- L1: 定位品質 (NME, unordered eye pair aware) ---")
+            logger.info("  --- L1: Localization Quality (NME, unordered eye pair aware) ---")
             logger.info("    NME_mean:     %.4f", nme_m)
             logger.info("    NME_median:   %.4f", metrics.get("nme_median", 0))
             logger.info("    NME < 0.05:   %5.1f%%   ← Excellent", metrics.get("nme_exc_pct", 0))
@@ -684,7 +684,7 @@ class AccuracyValidator(BaseValidator):
                     int(match_counts.get("SWAPPED", 0)),
                 )
 
-            logger.info("  --- L2: 量測品質 (RDE) ---")
+            logger.info("  --- L2: Measurement Quality (RDE) ---")
             logger.info("    RDE_mean:     %5.1f%%", metrics.get("rde_mean_percent", 0))
             logger.info("    RDE_median:   %5.1f%%", metrics.get("rde_median_percent", 0))
             logger.info("    RDE < 5%%:     %5.1f%%   ← Highly Reliable", metrics.get("rde_hlrel_pct", 0))
@@ -703,10 +703,10 @@ class AccuracyValidator(BaseValidator):
             total_v = metrics.get("total_pairs_valid", 0)
             logger.info("\n=== Front-Back Ordering Accuracy ===")
             logger.info("  Proxy:          eye_distance_px")
-            logger.info("  GT pair 候選數:  %d", metrics.get("total_pairs_all", 0))
-            logger.info("  TIE 排除數:      %d", metrics.get("total_pairs_tie", 0))
+            logger.info("  GT pair candidates: %d", metrics.get("total_pairs_all", 0))
+            logger.info("  TIE exclusions:  %d", metrics.get("total_pairs_tie", 0))
             logger.info(
-                "  pred 排除數:     %d",
+                "  pred exclusions: %d",
                 metrics.get("pair_excluded_pred_not_success", 0),
             )
             logger.info(
@@ -717,7 +717,7 @@ class AccuracyValidator(BaseValidator):
             if p_acc is not None:
                 logger.info(
                     "  --- Pairwise Accuracy ---\n"
-                    "    正確:         %d/%d (%5.1f%%)\n"
+                    "    Correct:      %d/%d (%5.1f%%)\n"
                     "    Random base:  50.0%%",
                     metrics.get("pairwise_correct_count", 0),
                     total_v,
@@ -756,7 +756,7 @@ class AccuracyValidator(BaseValidator):
         }
         missing_columns = sorted(required_columns - set(gt_df.columns))
         if missing_columns:
-            raise ValueError(f"Human GT 缺少必要欄位: {missing_columns}")
+            raise ValueError(f"Human GT missing necessary columns: {missing_columns}")
 
         prepared = gt_df.copy()
         prepared["label_status"] = prepared["label_status"].map(_normalize_label_status)
@@ -773,7 +773,7 @@ class AccuracyValidator(BaseValidator):
         )
         if duplicate_rows_removed:
             logger.warning(
-                "Human GT 偵測到 %d 筆重複 annotation_id，將保留最新一筆。",
+                "Human GT detected %d duplicate annotation_id instances, keeping the latest one.",
                 duplicate_rows_removed,
             )
         prepared = prepared.drop_duplicates(
@@ -794,7 +794,7 @@ class AccuracyValidator(BaseValidator):
         )
         if invalid_labeled_rows:
             logger.warning(
-                "Human GT 有 %d 筆 LABELED 缺少完整眼睛座標，將在 accuracy 中排除。",
+                "Human GT contains %d LABELED records missing full eye coordinates, will be excluded in accuracy.",
                 invalid_labeled_rows,
             )
 

@@ -90,7 +90,7 @@ class LocalizationValidator(BaseValidator):
         """
         if prediction_asset is not None and not prediction_asset.localization.empty:
             logger.info(
-                "LocalizationValidator: 直接使用 saved localization prediction asset。"
+                "LocalizationValidator: Using saved localization prediction asset directly."
             )
             return self._evaluate_from_localization_asset(
                 prediction_asset.localization
@@ -249,13 +249,13 @@ class LocalizationValidator(BaseValidator):
         """
         rows = metrics.get("annotation_rows", [])
         if not rows:
-            logger.warning("沒有標註資料可供匯出 CSV。")
+            logger.warning("No annotation data available to export to CSV.")
             return
 
         csv_path = output_dir / "eval_localization.csv"
         df = pd.DataFrame(rows)
         df.to_csv(csv_path, index=False, encoding="utf-8")
-        logger.info("已匯出驗證 CSV: %s (%d 筆)", csv_path, len(df))
+        logger.info("Exported validation CSV: %s (%d records)", csv_path, len(df))
 
     def _evaluate_from_localization_asset(
         self,
@@ -380,7 +380,7 @@ class LocalizationValidator(BaseValidator):
             output_dir=debug_dir,
             sample_count=len(dataset),  # Visualise all for evaluation
         )
-        logger.info("已產生 debug 視覺化: %d 張 → %s", len(saved), debug_dir)
+        logger.info("Generated debug visualization: %d images -> %s", len(saved), debug_dir)
 
     def _log_statistics(self, metrics: dict[str, Any]) -> None:
         """Print formatted evaluation statistics to logger.
@@ -389,27 +389,27 @@ class LocalizationValidator(BaseValidator):
             metrics: Full metrics dictionary from :meth:`evaluate`.
         """
         logger.info("=" * 60)
-        logger.info("Localization Evaluation 結果")
+        logger.info("Localization Evaluation Results")
         logger.info("=" * 60)
 
         total = metrics["total_instances"]
-        logger.info("  動物實體總數:     %d", total)
-        logger.info("  雙眼成功 (SUCCESS): %d (%.1f%%)",
+        logger.info("  Total Animal Instances: %d", total)
+        logger.info("  Both eyes successful (SUCCESS): %d (%.1f%%)",
                      metrics["success_count"], metrics["success_rate"])
-        logger.info("  單眼 (SINGLE_EYE):  %d", metrics["single_eye_count"])
-        logger.info("  失敗 (FAILED):      %d", metrics["failed_count"])
+        logger.info("  Single eye (SINGLE_EYE): %d", metrics["single_eye_count"])
+        logger.info("  Failed (FAILED):    %d", metrics["failed_count"])
 
         # Status distribution
-        logger.info("  --- 狀態分佈 ---")
+        logger.info("  --- Status Distribution ---")
         for status, count in sorted(metrics["status_distribution"].items()):
             pct = count / max(total, 1) * 100
             logger.info("    %s: %d (%.1f%%)", status, count, pct)
 
         # Per-category
-        logger.info("  --- 按類別分組 ---")
+        logger.info("  --- Grouped by Category ---")
         for cat, cat_data in sorted(metrics["per_category"].items()):
             logger.info(
-                "    %s: %d 隻, SUCCESS %d (%.1f%%)",
+                "    %s: %d animals, SUCCESS %d (%.1f%%)",
                 cat, cat_data["total"],
                 cat_data["success"], cat_data["success_rate"],
             )
@@ -417,17 +417,17 @@ class LocalizationValidator(BaseValidator):
         # Confidence
         conf = metrics.get("confidence_stats", {})
         if conf:
-            logger.info("  --- 信心分數統計 ---")
+            logger.info("  --- Confidence Score Stats ---")
             logger.info(
                 "    min=%.4f  max=%.4f  mean=%.4f  median=%.4f",
                 conf["min"], conf["max"], conf["mean"], conf["median"],
             )
 
         # Limitation notice
-        logger.info("  --- ⚠ 評估侷限 ---")
+        logger.info("  --- ⚠ Evaluation Limitations ---")
         logger.info(
-            "    本指標為偵測率 (Recall)，非精度 (PCK/OKS)。"
-            " COCO 不提供動物眼睛 GT keypoint。"
+            "    This metric reflects Recall detection rate, not accuracy (PCK/OKS)."
+            " COCO does not provide animal eye GT keypoints."
         )
         logger.info("=" * 60)
 

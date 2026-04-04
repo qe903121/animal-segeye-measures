@@ -104,7 +104,7 @@ def debug_visualize_eyes(
 
     sample_count = min(sample_count, len(dataset))
     if sample_count == 0:
-        logger.warning("資料集為空，無法產生眼睛偵測視覺化圖片。")
+        logger.warning("Dataset is empty, cannot generate eye detection visualizations.")
         return []
 
     rng = random.Random(seed)
@@ -115,12 +115,12 @@ def debug_visualize_eyes(
     for record in samples:
         image_path = Path(record["image_path"])
         if not image_path.is_file():
-            logger.error("原圖不存在: %s", image_path)
+            logger.error("Original image not found: %s", image_path)
             continue
 
         image = cv2.imread(str(image_path))
         if image is None:
-            logger.error("無法讀取圖片: %s", image_path)
+            logger.error("Failed to read image: %s", image_path)
             continue
 
         contour_overlay = image.copy()
@@ -199,7 +199,7 @@ def debug_visualize_eyes(
         saved_paths.append(str(out_file))
 
     logger.info(
-        "眼睛偵測視覺化完成: %d 張圖片已儲存至 %s",
+        "Eye detection visualization complete: %d images saved to %s",
         len(saved_paths),
         output_path,
     )

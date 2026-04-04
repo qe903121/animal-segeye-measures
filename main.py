@@ -52,5 +52,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n已中止。")
+        print("\nAborted.")
         sys.exit(130)

@@ -2,31 +2,33 @@
 
 Animal SegEye Measures is a reproducible baseline pipeline for animal-image metrology on COCO.
 
-Current baseline scope:
+It is organized around five operator commands:
 
-- filter COCO images that contain at least two animals from two target categories
-- use COCO `instance mask` as the current contour baseline
-- localize animal eyes with either a CV baseline or an AI baseline
-- measure per-animal inter-eye distance in pixels
-- estimate pairwise front/back relationship as a monocular relative-depth proxy
-- validate predictions against reusable human ground truth when available
+- `data`
+- `annotate`
+- `review`
+- `predict`
+- `validate`
 
-The current baseline prioritizes end-to-end reproducibility, clear asset boundaries, and measurable validation over solving every subproblem with a fully autonomous learned pipeline.
+The current baseline focuses on:
 
-## What The Project Solves
+- filtering COCO images that contain at least two animals from two target categories
+- using COCO `instance mask` as the current contour baseline
+- localizing animal eyes with either a CV baseline or an AI baseline
+- measuring per-animal inter-eye distance in pixels
+- estimating pairwise front/back relationship as a monocular relative-depth proxy
+- validating saved predictions against reusable human ground truth
 
-The project is organized around four asset layers:
+## Scope Boundaries
 
-- `A` Dataset Asset: frozen dataset membership exported from COCO filtering
-- `B` Human GT Asset: reusable manual labels for left/right eyes and `depth_rank`
-- `C` Prediction Asset: saved localization and measurement outputs by `run_id`
-- `D` Validation Report: GT-based reporting and accuracy analysis
+- Contours currently come from COCO `instance mask`, not from repo-native segmentation inference.
+- The AI localization path currently uses `GT bbox + top-down MMPose on CPU`.
+- Front/back output is a relative-depth proxy, not a physical 3D distance.
 
-Important scope boundaries:
+For stable formulas, asset contracts, and methodology details, see:
 
-- contours currently come from COCO `instance mask`, not from this repo's own segmentation inference
-- the AI localization path is `GT bbox + top-down MMPose on CPU`
-- front/back output is a relative-depth proxy, not a physical 3D distance
+- [docs/01_architecture.md](./docs/01_architecture.md)
+- [system_architecture.md](./system_architecture.md)
 
 ## Tech Stack
 
@@ -38,23 +40,19 @@ Important scope boundaries:
 - OpenMMLab MMPose / MMCV
 - Docker / VS Code Dev Container
 
-## Repository Entry Point
-
-The canonical CLI entry point is:
+## Canonical Entry Point
 
 ```bash
-python main.py --config config/config.yaml [--verbose] <command> [command args]
+python main.py --config config/config.yaml [--verbose] <command> [args]
 ```
 
-Available sub-commands:
+Document boundary:
 
-- `data`
-- `annotate`
-- `review`
-- `predict`
-- `validate`
+- this file is the primary owner of setup and operator workflow
+- stable formulas and runtime contracts live in `docs/01_architecture.md`
+- current status, TODOs, and roadmap live in `docs/02_active_context.md`
 
-Run help:
+Help:
 
 ```bash
 python main.py --help
@@ -85,8 +83,8 @@ pip install mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1
 
 Use the existing Dev Container configuration:
 
-- [devcontainer.json](/workspace/.devcontainer/devcontainer.json)
-- [Dockerfile](/workspace/.devcontainer/Dockerfile)
+- [devcontainer.json](./.devcontainer/devcontainer.json)
+- [Dockerfile](./.devcontainer/Dockerfile)
 
 In VS Code:
 
@@ -109,7 +107,7 @@ docker run -it --rm --ipc=host -v "$(pwd)":/workspace -w /workspace animal-segey
 
 ## Typical Workflow
 
-### 1. Create or refresh a Dataset Asset
+### 1. Build a Dataset Asset
 
 ```bash
 python main.py data --skip-download
@@ -123,13 +121,7 @@ python main.py data --visualize 5 --skip-download
 python main.py data --visualize-all --skip-download
 ```
 
-This produces:
-
-- `output/test_samples.csv`
-- `assets/datasets/<dataset_id>/manifest.json`
-- `assets/datasets/<dataset_id>/instances.csv`
-
-### 2. Create Human GT labels
+### 2. Create or update Human GT
 
 Annotate:
 
@@ -137,149 +129,81 @@ Annotate:
 python main.py annotate --dataset-id <dataset_id> --annotator hsien --skip-labeled --no-imshow
 ```
 
-Review saved GT overlays:
+Review saved overlays:
 
 ```bash
 python main.py review --dataset-id <dataset_id> --no-imshow
 ```
 
-This produces:
-
-- `assets/ground_truth/<dataset_id>/human_labels.csv`
-- `assets/ground_truth/<dataset_id>/meta.json`
-
-### 3. Run prediction from a frozen dataset
-
-Prediction side:
+### 3. Generate a Prediction Asset
 
 ```bash
 python main.py predict --dataset-id <dataset_id> --method ai --skip-download
 ```
 
-This command:
-
-- runs eye localization
-- runs measurement generation
-- exports a formal Prediction Asset
-
-Optional explicit run id:
+With an explicit run id:
 
 ```bash
 python main.py predict --dataset-id <dataset_id> --method ai --skip-download --run-id demo_run
 ```
 
-If `demo_run` already exists and you intentionally want to replace it:
+Overwrite only when intentional:
 
 ```bash
 python main.py predict --dataset-id <dataset_id> --method ai --skip-download --run-id demo_run --overwrite
 ```
 
-This produces:
-
-- `assets/predictions/<run_id>/run_meta.json`
-- `assets/predictions/<run_id>/localization.csv`
-- `assets/predictions/<run_id>/measurement_instances.csv`
-- `assets/predictions/<run_id>/measurement_pairs.csv`
-
-### 4. Validate a saved Prediction Asset against Human GT
+### 4. Validate against Human GT
 
 ```bash
 python main.py validate --dataset-id <dataset_id> --prediction-run-id <run_id>
 ```
 
-This command:
+This user-facing validation path:
 
-- requires frozen Dataset Asset + Human GT + Prediction Asset
-- validates directly from saved assets; it does not require COCO download checks
+- requires Dataset Asset + Human GT + Prediction Asset
 - does not rerun detector inference
-- outputs GT-based validation reports such as:
-  - `NME`
-  - `RDE`
-  - `Pairwise Accuracy`
+- does not require raw COCO reload
 
 ## Output Artifacts
 
-### Dataset
+### Dataset Asset
 
 - `output/test_samples.csv`
 - `assets/datasets/<dataset_id>/manifest.json`
 - `assets/datasets/<dataset_id>/instances.csv`
 
-### Ground Truth
+### Human GT Asset
 
 - `assets/ground_truth/<dataset_id>/human_labels.csv`
 - `assets/ground_truth/<dataset_id>/meta.json`
 
-### Prediction
+### Prediction Asset
 
 - `assets/predictions/<run_id>/run_meta.json`
 - `assets/predictions/<run_id>/localization.csv`
 - `assets/predictions/<run_id>/measurement_instances.csv`
 - `assets/predictions/<run_id>/measurement_pairs.csv`
 
-### Evaluation
+### Reports And Overlays
 
-- `output/predict/...`
-- `output/validate/...`
 - `output/data/...`
 - `output/review_labels/...`
+- `output/predict/...`
+- `output/validate/...`
 
-## Methodology Summary
+## References
 
-### Contours
-
-- current source: COCO `instance mask`
-- current role: reproducible contour baseline
-- not yet: repo-native learned segmentation inference
-
-### Eye Localization
-
-- CV baseline: heuristic traditional image-processing approach
-- AI baseline: MMPose top-down animal pose, using GT bbox and CPU inference
-
-### Measurement
-
-Inter-eye distance:
-
-```text
-d_eye = sqrt((x_left - x_right)^2 + (y_left - y_right)^2)
-```
-
-Front/back proxy:
-
-- uses apparent eye-distance scale as monocular depth cue
-- should be described as relative ordering / proxy gap, not physical distance
-
-### Accuracy Metrics
-
-- `NME`: normalized eye localization error with unordered eye-pair matching
-- `RDE`: relative error of inter-eye distance
-- `Pairwise Accuracy`: correctness of front/back ordering against GT `depth_rank`
-
-## Architecture Diagram
-
-See:
-
-- [system_architecture.md](/workspace/system_architecture.md)
-- [docs/01_architecture.md](/workspace/docs/01_architecture.md)
-
-## Current Sample Asset In Repo
-
-Committed sample dataset asset:
-
-- `assets/datasets/coco_val2017_cat-dog_23714276/manifest.json`
-- `assets/datasets/coco_val2017_cat-dog_23714276/instances.csv`
-
-Committed sample GT:
-
-- `assets/ground_truth/coco_val2017_cat-dog_23714276/human_labels.csv`
-- `assets/ground_truth/coco_val2017_cat-dog_23714276/meta.json`
+- [docs/01_architecture.md](./docs/01_architecture.md)
+- [docs/02_active_context.md](./docs/02_active_context.md)
+- [docs/03_dev_journal.md](./docs/03_dev_journal.md)
+- [system_architecture.md](./system_architecture.md)
 
 ## API / Accounts
 
 This repository is currently CLI-first.
 
-- API service: not implemented in the current baseline
+- API service: not implemented
 - API docs link: not applicable yet
 - test account info: not applicable
 
