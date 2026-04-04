@@ -6,8 +6,8 @@ human inspection.
 
 Typical usage:
     >>> from src.utils.visualization import debug_visualize
-    >>> saved = debug_visualize(dataset, output_dir="output/debug", sample_count=10)
-    >>> print(f"Saved {len(saved)} debug images")
+    >>> saved = debug_visualize(dataset, output_dir="output/data", sample_count=10)
+    >>> print(f"Saved {len(saved)} data-layer preview images")
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def _get_category_color(category: str) -> tuple[int, int, int]:
 
 def debug_visualize(
     dataset: list[ImageRecord],
-    output_dir: str = "output/debug",
+    output_dir: str = "output/data",
     sample_count: int = 10,
     seed: int = 42,
 ) -> list[str]:
@@ -70,7 +70,7 @@ def debug_visualize(
         seed: Random seed for reproducible sampling.
 
     Returns:
-        List of absolute paths to saved debug images.
+        List of absolute paths to saved data-layer preview images.
 
     Raises:
         FileNotFoundError: An original image file does not exist.
@@ -155,10 +155,10 @@ def debug_visualize(
         )
 
         # Save
-        out_file = output_path / f"debug_{record['image_id']}.jpg"
+        out_file = output_path / f"data_{record['image_id']}.jpg"
         cv2.imwrite(str(out_file), image)
         saved_paths.append(str(out_file))
-        logger.debug("已儲存抽檢圖片: %s", out_file)
+        logger.debug("已儲存資料層視覺化圖片: %s", out_file)
 
     logger.info(
         "視覺化抽檢完成: %d/%d 張圖片已儲存至 %s",

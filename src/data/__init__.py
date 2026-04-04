@@ -1,16 +1,17 @@
-"""Data infrastructure module for COCO dataset management.
+"""Data infrastructure module for COCO dataset and asset management.
 
 Provides:
     AutoDownloader: Idempotent COCO val2017 downloader with retry logic.
     DatasetAssetLoader: Reader for exported Phase 1 dataset assets.
     DatasetAssetExporter: Export standardized Phase 1 dataset assets.
+    build_lightweight_dataset_from_asset: Asset-only runtime dataset builder.
     COCODataLoader: GT annotation loader with multi-animal filtering.
     HumanLabelStore: Persist reusable human ground-truth labels.
     PredictionAssetLoader: Reader for exported prediction assets.
     PredictionAssetStore: Prediction asset schema and storage helper.
 """
 
-from .asset_loader import DatasetAssetLoader
+from .asset_loader import DatasetAssetLoader, build_lightweight_dataset_from_asset
 from .asset_exporter import DatasetAssetExporter
 from .downloader import AutoDownloader
 from .gt_store import HumanLabelStore
@@ -23,6 +24,7 @@ __all__ = [
     "COCODataLoader",
     "DatasetAssetExporter",
     "DatasetAssetLoader",
+    "build_lightweight_dataset_from_asset",
     "HumanLabelStore",
     "PredictionAssetLoader",
     "PredictionAssetStore",

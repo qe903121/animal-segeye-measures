@@ -56,7 +56,11 @@ def can_attempt_imshow() -> bool:
     return True
 
 
-def resolve_imshow_usage(no_imshow: bool, mode: str) -> bool:
+def resolve_imshow_usage(
+    no_imshow: bool,
+    mode: str,
+    default_enabled: bool = True,
+) -> bool:
     """Resolve imshow usage once per run."""
     if no_imshow:
         return False
@@ -72,7 +76,7 @@ def resolve_imshow_usage(no_imshow: bool, mode: str) -> bool:
         if mode == "review"
         else "是否使用 cv2.imshow() 顯示圖片提示？"
     )
-    return prompt_yes_no(prompt, default=True)
+    return prompt_yes_no(prompt, default=default_enabled)
 
 
 def color_for_category(category: str) -> tuple[int, int, int]:

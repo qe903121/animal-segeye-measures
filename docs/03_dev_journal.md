@@ -1,8 +1,19 @@
 # 03 Dev Journal
 
-Last updated: 2026-04-03
+Last updated: 2026-04-04
 
 This file archives historical engineering notes, pitfalls, and major decision changes. It is not the primary source of truth for current architecture or active tasks.
+
+## 0. Recent Structural Changes
+
+- Refactored the canonical CLI into an OOP lifecycle:
+  - `main.py` now delegates to `CLIApplication`
+  - `CommandContext` encapsulates runtime config and global flags
+  - each user-facing sub-command is represented by one command object
+- Preserved the existing operator contract:
+  - `data / annotate / review / predict / validate`
+- Kept domain logic in `src/cli/cmd_*` modules while moving parser/bootstrap
+  responsibility into shared abstractions under `src/utils/cli.py`
 
 ## 1. Historical Timeline
 
@@ -24,10 +35,17 @@ This file archives historical engineering notes, pitfalls, and major decision ch
   - `data`
   - `annotate`
   - `review`
-  - `evaluate`
+  - an initial task-centric `evaluate`
 - briefly used wrapper-based migration for older entry scripts
 - then removed the old top-level `run_*.py` entry scripts after docs and the
   canonical operator path converged on `main.py`
+- later converged the user-facing operator UX further into:
+  - `data`
+  - `annotate`
+  - `review`
+  - `predict`
+  - `validate`
+  while keeping `src/cli/cmd_evaluate.py` only as an internal advanced backend
 - Added Prediction Asset Layer Phase A/B groundwork:
   schema definitions plus export from current runtime flow.
 - Added Prediction Asset Layer Phase C loading:
@@ -50,6 +68,19 @@ This file archives historical engineering notes, pitfalls, and major decision ch
   one exported prediction run can now drive `localization`, `measurement`,
   and `accuracy` through `--prediction-run-id` without rerunning Phase 2
   inference.
+- Decoupled the user-facing `main.py validate` path from raw COCO reload:
+  it now rebuilds a lightweight runtime dataset directly from Dataset Asset
+  metadata and consumes saved Prediction Asset tables as the primary
+  validation input.
+- Added overwrite protection for Prediction Assets:
+  reusing a `run_id` now fails fast unless `predict` is called with an
+  explicit `--overwrite`.
+- Normalized validator filenames inside `src/evaluation/`:
+  - `valid_loc.py` -> `localization.py`
+  - `valid_measure.py` -> `measurement.py`
+  - `valid_accuracy.py` -> `accuracy.py`
+- Added `system_architecture.md` as a dedicated high-level architecture
+  diagram and asset-flow reference.
 
 ## 2. Key Pitfalls And Resolutions
 
@@ -202,6 +233,8 @@ Unless new evidence appears, do not reopen these settled choices by default:
 4. COCO GT mask is acceptable as the current contour baseline.
 5. The canonical GT workflow now lives under `main.py annotate` and
    `main.py review`.
+6. User-facing prediction and GT checking should now be taught as
+   `main.py predict` and `main.py validate`, not task-centric `evaluate`.
 
 ## 6. Archived GT Asset Design Note
 

@@ -1,7 +1,13 @@
 """Unified CLI entry point for the Animal SegEye Measures pipeline.
 
-Routes all commands through a single ``argparse`` sub-command router,
-replacing the legacy ``run_*.py`` scripts.
+Routes all commands through one OOP-style application lifecycle:
+
+- ``CLIApplication`` owns parser bootstrap and dispatch
+- concrete command objects own their parser contracts and execution
+- ``CommandContext`` encapsulates shared runtime state
+
+This keeps the router thin while preserving a single canonical operator
+entry point.
 
 Usage::
 
@@ -12,69 +18,34 @@ Available commands::
     data       Phase 1: COCO download, filter, and dataset asset export
     annotate   Human GT annotation (terminal-only interactive workflow)
     review     Human GT visual review and overlay export
-    evaluate   Phase 2-4: eye detection, measurement, and validation
+    predict    Phase 2-3: localization + measurement + Prediction Asset export
+    validate   GT-based validation from Dataset Asset + Prediction Asset
 
 Examples::
 
     python main.py data --categories cat dog --skip-download
     python main.py annotate --dataset-id <id> --annotator hsien
     python main.py review --dataset-id <id> --no-imshow
-    python main.py evaluate --task pipeline --method ai --dataset-id <id>
-    python main.py --verbose evaluate --task accuracy --dataset-id <id>
+    python main.py predict --dataset-id <id> --method ai --skip-download
+    python main.py validate --dataset-id <id> --prediction-run-id <run_id>
 """
 
 from __future__ import annotations
 
-import argparse
 import sys
 
 
 def main() -> None:
-    """Parse global args, bootstrap logging/config, and dispatch."""
-    parser = argparse.ArgumentParser(
+    """Bootstrap the CLI application and run one command lifecycle."""
+    from src.cli import build_commands
+    from src.utils.cli import CLIApplication
+
+    app = CLIApplication(
         prog="animal-segeye-measures",
         description="Animal Segmentation & Eye Measurement Pipeline",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        commands=build_commands(),
     )
-
-    # ── Global arguments ─────────────────────────────────────────────
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="config/config.yaml",
-        help="設定檔路徑 (default: config/config.yaml)",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="啟用詳細日誌 (DEBUG level)",
-    )
-
-    # ── Sub-commands (lazy import to keep --help fast) ─────────────────
-    from src.cli import cmd_data, cmd_annotate, cmd_review, cmd_evaluate
-
-    subparsers = parser.add_subparsers(
-        dest="command",
-        title="commands",
-        description="可用的子命令",
-        metavar="<command>",
-    )
-    subparsers.required = True
-
-    cmd_data.register(subparsers)
-    cmd_annotate.register(subparsers)
-    cmd_review.register(subparsers)
-    cmd_evaluate.register(subparsers)
-
-    # ── Parse, bootstrap, dispatch ───────────────────────────────────
-    args = parser.parse_args()
-
-    from src.utils.cli import setup_logging, load_config
-
-    setup_logging(verbose=args.verbose)
-    config = load_config(args.config)
-
-    args.func(args, config)
+    app.run()
 
 
 if __name__ == "__main__":

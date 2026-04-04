@@ -8,52 +8,70 @@ import sys
 from typing import Any
 
 from src.cli._shared_parsers import dataset_id_parser
+from src.utils.cli import BaseCLICommand, CommandContext
 
 logger = logging.getLogger(__name__)
 
 
+class AnnotateCommand(BaseCLICommand):
+    """Interactive GT annotation command."""
+
+    name = "annotate"
+    help = "Human GT 人工標註 (terminal-only workflow)"
+
+    def get_parser_kwargs(self) -> dict[str, Any]:
+        return {"parents": [dataset_id_parser()]}
+
+    def configure_parser(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--image-id",
+            nargs="+",
+            type=int,
+            default=None,
+            help="僅標註指定 image_id，可傳多個",
+        )
+        parser.add_argument(
+            "--from-csv",
+            type=str,
+            default=None,
+            help="從 CSV 讀取 image_id 清單",
+        )
+        parser.add_argument(
+            "--annotator",
+            type=str,
+            default=None,
+            help="標註者名稱 (default: 使用 config.annotation.default_annotator)",
+        )
+        parser.add_argument(
+            "--skip-labeled",
+            action="store_true",
+            help="跳過 label_status=LABELED 的 annotation（SKIPPED 不算完成）",
+        )
+        parser.add_argument(
+            "--overwrite",
+            action="store_true",
+            help="若 annotation 已有標註，直接覆寫",
+        )
+        parser.add_argument(
+            "--no-imshow",
+            action="store_true",
+            help="不使用 cv2.imshow 顯示圖片",
+        )
+
+    def execute(
+        self,
+        args: argparse.Namespace,
+        context: CommandContext,
+    ) -> None:
+        main(args, context.config)
+
+
+COMMAND = AnnotateCommand()
+
+
 def register(subparsers: argparse._SubParsersAction) -> None:
-    """Register the ``annotate`` sub-command."""
-    parser = subparsers.add_parser(
-        "annotate",
-        help="Human GT 人工標註 (terminal-only workflow)",
-        parents=[dataset_id_parser()],
-    )
-    parser.add_argument(
-        "--image-id",
-        nargs="+",
-        type=int,
-        default=None,
-        help="僅標註指定 image_id，可傳多個",
-    )
-    parser.add_argument(
-        "--from-csv",
-        type=str,
-        default=None,
-        help="從 CSV 讀取 image_id 清單",
-    )
-    parser.add_argument(
-        "--annotator",
-        type=str,
-        default="anonymous",
-        help="標註者名稱",
-    )
-    parser.add_argument(
-        "--skip-labeled",
-        action="store_true",
-        help="跳過 label_status=LABELED 的 annotation（SKIPPED 不算完成）",
-    )
-    parser.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="若 annotation 已有標註，直接覆寫",
-    )
-    parser.add_argument(
-        "--no-imshow",
-        action="store_true",
-        help="不使用 cv2.imshow 顯示圖片",
-    )
-    parser.set_defaults(func=main)
+    """Compatibility wrapper for legacy register-style imports."""
+    COMMAND.register(subparsers)
 
 
 def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
@@ -86,10 +104,18 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     dataset_id = args.dataset_id or prompt_dataset_id(asset_loader)
     asset = asset_loader.load(dataset_id)
     labels_df = gt_store.load_labels(dataset_id)
+    annotation_cfg = config.get("annotation", {})
+    annotator = (
+        args.annotator
+        or str(annotation_cfg.get("default_annotator", "anonymous"))
+    )
 
     use_imshow = resolve_imshow_usage(
         no_imshow=args.no_imshow,
         mode="annotate",
+        default_enabled=bool(
+            annotation_cfg.get("use_imshow_by_default", True)
+        ),
     )
 
     try:
@@ -101,7 +127,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             from_csv=args.from_csv,
             skip_labeled=args.skip_labeled,
             overwrite=args.overwrite,
-            annotator=args.annotator,
+            annotator=annotator,
             use_imshow=use_imshow,
         )
     except KeyboardInterrupt:
@@ -126,6 +152,17 @@ def _run_annotate(
     use_imshow: bool,
 ) -> None:
     """Core annotation loop."""
+    from src.cli._annotation_helpers import (
+        ACTION_QUIT,
+        build_used_ranks,
+        get_existing_label,
+        is_completed_label,
+        prompt_yes_no,
+        resolve_image_ids,
+        resolve_image_path,
+        show_image_preview,
+    )
+
     selected_image_ids = resolve_image_ids(
         asset.instances,
         labels_df,
@@ -224,6 +261,16 @@ def _annotate_one(
     used_ranks: dict[int, int],
 ) -> dict[str, Any] | str | None:
     """Interactively annotate one object."""
+    from src.cli._annotation_helpers import (
+        ACTION_QUIT,
+        ACTION_REDO,
+        ACTION_SKIP,
+        now_iso,
+        prompt_coordinate,
+        prompt_depth_rank,
+        special_result,
+    )
+
     annotation_id = int(row["annotation_id"])
     category = str(row["category"])
     bbox = (

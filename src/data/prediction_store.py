@@ -152,6 +152,19 @@ class PredictionAssetStore:
             measurement_pairs_path=asset_dir / "measurement_pairs.csv",
         )
 
+    def run_exists(self, run_id: str) -> bool:
+        """Return whether a prediction asset already exists for ``run_id``."""
+        paths = self.get_paths(run_id)
+        return any(
+            path.exists()
+            for path in [
+                paths.meta_path,
+                paths.localization_path,
+                paths.measurement_instances_path,
+                paths.measurement_pairs_path,
+            ]
+        )
+
     def build_run_meta(
         self,
         *,
@@ -194,11 +207,40 @@ class PredictionAssetStore:
 
         return meta
 
-    def initialize_run(self, meta: dict[str, Any]) -> PredictionAssetPaths:
-        """Create the run directory and persist ``run_meta.json``."""
+    def initialize_run(
+        self,
+        meta: dict[str, Any],
+        *,
+        overwrite: bool = False,
+    ) -> PredictionAssetPaths:
+        """Create the run directory and persist ``run_meta.json``.
+
+        By default, existing prediction assets are treated as immutable.
+        Callers must pass ``overwrite=True`` explicitly to replace a run
+        with the same ``run_id``.
+        """
         run_id = str(meta["run_id"])
         paths = self.get_paths(run_id)
+        existing_files = [
+            path for path in [
+                paths.meta_path,
+                paths.localization_path,
+                paths.measurement_instances_path,
+                paths.measurement_pairs_path,
+            ] if path.exists()
+        ]
+
+        if existing_files and not overwrite:
+            raise FileExistsError(
+                "Prediction Asset 已存在，為避免覆蓋既有實驗結果，"
+                f"請改用新的 --run-id 或明確指定覆寫。run_id={run_id}"
+            )
+
         paths.asset_dir.mkdir(parents=True, exist_ok=True)
+        if existing_files and overwrite:
+            logger.warning(
+                "Prediction Asset 將被覆寫: %s", paths.asset_dir
+            )
 
         with open(paths.meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)

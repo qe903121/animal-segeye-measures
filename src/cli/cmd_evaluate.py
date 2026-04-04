@@ -1,7 +1,12 @@
-"""Sub-command: evaluate — unified Phase 2-4 evaluation pipeline.
+"""Advanced internal task-centric evaluation backend.
 
-Supports localization, measurement, accuracy, and pipeline modes with
-optional prediction asset export and reload.
+This module still powers shared helpers used by newer user-facing
+commands, but it is no longer the primary operator mental model.
+
+User-facing workflow should prefer:
+
+- ``main.py predict`` for prediction-side work
+- ``main.py validate`` for GT-based validation
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from src.cli._shared_parsers import coco_data_parser, dataset_id_parser
+from src.utils.cli import SummaryItem, log_summary
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +99,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         type=str,
         default=None,
         help="指定 Prediction Asset 的 run_id；未提供時自動生成",
+    )
+    parser.add_argument(
+        "--overwrite-predictions",
+        action="store_true",
+        help="允許覆寫同名 Prediction Asset run_id（進階/internal 用途）",
     )
     parser.add_argument(
         "--mock",
@@ -197,7 +208,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
 
     accuracy_enabled = bool(gt_path and gt_path.is_file())
     if accuracy_enabled:
-        from src.evaluation.valid_accuracy import AccuracyValidator
+        from src.evaluation.accuracy import AccuracyValidator
         engine.register(TASK_ACCURACY, AccuracyValidator)
     else:
         logger.info(
@@ -278,6 +289,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             dataset_id=args.dataset_id or ("mock_dataset" if args.mock else ""),
             method=args.method,
             run_id=args.run_id,
+            overwrite=args.overwrite_predictions,
         )
 
     logger.info("=" * 60)
@@ -297,7 +309,6 @@ def _load_real_dataset(
 ) -> list:
     """Run Phase 2 on either a fresh Phase 1 dataset or a frozen asset."""
     from src.data import AutoDownloader, COCODataLoader, DatasetAssetLoader
-    from src.localization import create_detector
 
     if not skip_download:
         logger.info("檢查 COCO 資料是否已就緒...")
@@ -349,6 +360,8 @@ def _load_real_dataset(
             prediction_run_id,
         )
     else:
+        from src.localization import create_detector
+
         logger.info("執行 Phase 2 眼睛偵測 (method=%s)...", method)
         detector = create_detector(method, config)
         dataset = detector.process_dataset(dataset)
@@ -490,13 +503,16 @@ def _log_summary(
     t_eval: float,
 ) -> None:
     """Log a formatted summary of evaluation results."""
-    logger.info("=" * 60)
-    logger.info("驗證完成！摘要如下：")
-    logger.info("=" * 60)
-    logger.info("  執行模式:     %s", "MOCK" if args.mock else "REAL")
-    logger.info("  執行任務:     %s", list(all_metrics.keys()))
-    logger.info("  輸出目錄:     %s", output_dir)
-    logger.info("  驗證耗時:     %.2f 秒", t_eval)
+    log_summary(
+        logger,
+        "驗證完成！摘要如下：",
+        [
+            SummaryItem("執行模式", "MOCK" if args.mock else "REAL"),
+            SummaryItem("執行任務", ", ".join(all_metrics.keys())),
+            SummaryItem("輸出目錄", output_dir),
+            SummaryItem("驗證耗時", f"{t_eval:.2f} 秒"),
+        ],
+    )
 
     for task_name, metrics in all_metrics.items():
         if metrics.get("error"):
@@ -541,7 +557,8 @@ def _export_prediction_assets(
     dataset_id: str,
     method: str,
     run_id: str | None,
-) -> None:
+    overwrite: bool = False,
+) -> Any:
     """Export canonical prediction assets from the current runtime flow."""
     from src.data import PredictionAssetStore
     from src.prediction import (
@@ -564,7 +581,7 @@ def _export_prediction_assets(
         git_commit=_get_git_commit(),
         config_fingerprint_source=config,
     )
-    paths = store.initialize_run(meta)
+    paths = store.initialize_run(meta, overwrite=overwrite)
 
     localization_rows = build_localization_prediction_rows(
         dataset=dataset,
@@ -595,6 +612,7 @@ def _export_prediction_assets(
     store.write_measurement_pairs(paths, pair_rows)
 
     logger.info("Prediction Asset 匯出完成: %s", paths.asset_dir)
+    return paths
 
 
 def _resolve_model_name(method: str, config: dict) -> str:

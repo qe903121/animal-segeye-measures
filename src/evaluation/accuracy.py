@@ -182,19 +182,52 @@ def _extract_pred_point(
     return [x, y]
 
 
+def _compute_unordered_nme(
+    pred_left: list[float],
+    pred_right: list[float],
+    gt_left: tuple[float, float],
+    gt_right: tuple[float, float],
+) -> tuple[float, float, float, str]:
+    """Compute NME with unordered eye-pair matching.
+
+    The assignment task requires locating the two eyes and measuring their
+    distance; it does not require anatomical laterality classification.
+    Therefore we evaluate both pairings:
+
+    - direct:  pred_left -> gt_left, pred_right -> gt_right
+    - swapped: pred_left -> gt_right, pred_right -> gt_left
+
+    and keep the smaller normalized error.
+    """
+    dist_gt = _euclidean_distance(gt_left, gt_right)
+    if dist_gt <= 0:
+        return (float("inf"), float("inf"), float("inf"), "INVALID_GT")
+
+    direct = (
+        _euclidean_distance(pred_left, gt_left)
+        + _euclidean_distance(pred_right, gt_right)
+    ) / (2.0 * dist_gt)
+    swapped = (
+        _euclidean_distance(pred_left, gt_right)
+        + _euclidean_distance(pred_right, gt_left)
+    ) / (2.0 * dist_gt)
+
+    if swapped < direct:
+        return (swapped, direct, swapped, "SWAPPED")
+    return (direct, direct, swapped, "DIRECT")
+
+
 class AccuracyValidator(BaseValidator):
     """Validator computing NME, RDE, and Pairwise Depth Accuracy against Ground Truth.
 
-    Requires ``config["runtime_dataset_id"]`` to be set by the caller
-    so it can dynamically load the corresponding ``human_labels.csv`` from
-    the assets directory.
+    Prefers resolving ``dataset_id`` from the formal Prediction Asset metadata.
+    Falls back to ``config["runtime_dataset_id"]`` for older internal paths.
     """
 
     def __init__(self, config: dict) -> None:
         """Initialize the AccuracyValidator."""
         super().__init__(config)
         self.gt_root = Path(config.get("assets", {}).get("ground_truth_root", "assets/ground_truth"))
-        self.dataset_id = config.get("runtime_dataset_id")
         self.abs_tol = 1e-6  # Tolerance for TIE in prediction proxy
 
     def evaluate(
@@ -203,9 +236,16 @@ class AccuracyValidator(BaseValidator):
         prediction_asset: PredictionAsset | None = None,
     ) -> dict[str, Any]:
         """Compute accuracy metrics against Human GT."""
-        if not self.dataset_id:
-            logger.error("AccuracyValidator: 未提供 `runtime_dataset_id`。請在 CLI 中加入 --dataset-id。")
+        prediction_asset = prediction_asset or self._config.get("runtime_prediction_asset")
+        dataset_id = self._resolve_dataset_id(prediction_asset)
+
+        if not dataset_id:
+            logger.error(
+                "AccuracyValidator: 未提供 dataset_id，也無法從 Prediction Asset metadata 推得。"
+            )
             return {"error": True}
+
+        self.dataset_id = dataset_id
 
         gt_path = self.gt_root / self.dataset_id / "human_labels.csv"
         if not gt_path.exists():
@@ -215,7 +255,6 @@ class AccuracyValidator(BaseValidator):
         logger.info("載入 Human GT: %s", gt_path)
         gt_df = pd.read_csv(gt_path)
         gt_df, gt_stats = self._prepare_gt_frame(gt_df)
-        prediction_asset = prediction_asset or self._config.get("runtime_prediction_asset")
         localization_lookup: dict[int, dict[str, Any]] = {}
         measurement_instance_lookup: dict[int, dict[str, Any]] = {}
         measurement_pair_lookup: dict[tuple[int, int, int], dict[str, Any]] = {}
@@ -299,6 +338,9 @@ class AccuracyValidator(BaseValidator):
                     "include_in_accuracy": False,
                     "exclude_reason": "",
                     "nme": None,
+                    "nme_direct": None,
+                    "nme_swapped": None,
+                    "nme_match_mode": "",
                     "rde": None,
                     "dist_pred": None,
                     "dist_gt": None,
@@ -364,10 +406,13 @@ class AccuracyValidator(BaseValidator):
                 comparable_anns += 1
                 instance_row["include_in_accuracy"] = True
 
-                err_l = _euclidean_distance(pred_left, gt_left)
-                err_r = _euclidean_distance(pred_right, gt_right)
                 dist_gt = _euclidean_distance(gt_left, gt_right)
-                nme = (err_l + err_r) / (2.0 * dist_gt) if dist_gt > 0 else float("inf")
+                nme, nme_direct, nme_swapped, nme_match_mode = _compute_unordered_nme(
+                    pred_left,
+                    pred_right,
+                    gt_left,
+                    gt_right,
+                )
 
                 dist_pred = (
                     dist_pred_measurement
@@ -377,6 +422,9 @@ class AccuracyValidator(BaseValidator):
                 rde = abs(dist_pred - dist_gt) / dist_gt if dist_gt > 0 else float("inf")
 
                 instance_row["nme"] = nme
+                instance_row["nme_direct"] = nme_direct
+                instance_row["nme_swapped"] = nme_swapped
+                instance_row["nme_match_mode"] = nme_match_mode
                 instance_row["rde"] = rde
                 instance_row["dist_pred"] = dist_pred
                 instance_row["dist_gt"] = dist_gt
@@ -514,6 +562,17 @@ class AccuracyValidator(BaseValidator):
             metrics["rde_median_percent"] = df_inst["rde"].median() * 100
             metrics["rde_hlrel_pct"] = (df_inst["rde"] < 0.05).mean() * 100
             metrics["rde_acc_pct"] = (df_inst["rde"] < 0.15).mean() * 100
+            match_mode_counts = (
+                df_inst["nme_match_mode"]
+                .fillna("")
+                .value_counts()
+                .to_dict()
+            )
+            metrics["nme_match_mode_counts"] = {
+                str(key): int(value)
+                for key, value in match_mode_counts.items()
+                if str(key)
+            }
             
             # Per Category
             cat_stats = df_inst.groupby("category").agg({
@@ -551,6 +610,17 @@ class AccuracyValidator(BaseValidator):
             metrics["per_category_pairs"] = p_cat_dict
 
         return metrics
+
+    def _resolve_dataset_id(
+        self,
+        prediction_asset: PredictionAsset | None,
+    ) -> str:
+        """Resolve dataset_id from the most reliable available source."""
+        if prediction_asset is not None:
+            dataset_id = str(prediction_asset.meta.get("dataset_id", "")).strip()
+            if dataset_id:
+                return dataset_id
+        return str(self._config.get("runtime_dataset_id", "")).strip()
 
     def generate_report(
         self,
@@ -601,11 +671,18 @@ class AccuracyValidator(BaseValidator):
 
         nme_m = metrics.get("nme_mean")
         if nme_m is not None:
-            logger.info("  --- L1: 定位品質 (NME) ---")
+            logger.info("  --- L1: 定位品質 (NME, unordered eye pair aware) ---")
             logger.info("    NME_mean:     %.4f", nme_m)
             logger.info("    NME_median:   %.4f", metrics.get("nme_median", 0))
             logger.info("    NME < 0.05:   %5.1f%%   ← Excellent", metrics.get("nme_exc_pct", 0))
             logger.info("    NME < 0.10:   %5.1f%%   ← Acceptable", metrics.get("nme_acc_pct", 0))
+            match_counts = metrics.get("nme_match_mode_counts", {})
+            if match_counts:
+                logger.info(
+                    "    Eye-pair matching: DIRECT=%d, SWAPPED=%d",
+                    int(match_counts.get("DIRECT", 0)),
+                    int(match_counts.get("SWAPPED", 0)),
+                )
 
             logger.info("  --- L2: 量測品質 (RDE) ---")
             logger.info("    RDE_mean:     %5.1f%%", metrics.get("rde_mean_percent", 0))

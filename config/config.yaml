@@ -29,9 +29,14 @@ filtering:
 
 # ===== Output =====
 output:
-  debug_dir: "output/debug"
-  debug_eyes_dir: "output/debug_eyes"
+  data_dir: "output/data"
   csv_path: "output/test_samples.csv"
+
+# ===== Annotation / Review =====
+annotation:
+  default_annotator: "anonymous"
+  review_output_dir: "output/review_labels"
+  use_imshow_by_default: false
 
 # ===== Dataset Asset Layer =====
 assets:

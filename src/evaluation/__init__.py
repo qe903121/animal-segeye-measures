@@ -14,9 +14,9 @@ Public API:
 
 from .base import BaseValidator
 from .engine import EvaluationEngine
-from .valid_loc import LocalizationValidator
-from .valid_measure import MeasurementValidator
-from .valid_accuracy import AccuracyValidator
+from .localization import LocalizationValidator
+from .measurement import MeasurementValidator
+from .accuracy import AccuracyValidator
 
 __all__ = [
     "BaseValidator",

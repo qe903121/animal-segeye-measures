@@ -1,6 +1,6 @@
 # 01 Architecture
 
-Last updated: 2026-04-03
+Last updated: 2026-04-04
 
 ## 1. Purpose
 
@@ -42,6 +42,37 @@ The current baseline prioritizes end-to-end reproducibility and validation over 
 
 ## 4. System Layers
 
+### Unified CLI Lifecycle
+
+Responsibility:
+
+- bootstrap one immutable runtime context
+- register user-facing commands
+- dispatch command execution polymorphically
+
+Primary files:
+
+- `main.py`
+- `src/utils/cli.py`
+- `src/cli/__init__.py`
+- `src/cli/cmd_*.py`
+
+Current design:
+
+- `CLIApplication` owns parser construction, bootstrap, and dispatch
+- `CommandContext` encapsulates loaded config and runtime flags
+- each user-facing command is represented by one command object implementing
+  a shared `BaseCLICommand` contract
+- heavy domain logic stays in dedicated command modules rather than the
+  top-level router
+
+Why this matters:
+
+- improves encapsulation of parser/execution responsibility
+- keeps the operator lifecycle explicit and testable
+- allows command-specific polymorphism without reintroducing multiple
+  disconnected entry scripts
+
 ### Phase 1: Dataset Layer
 
 Responsibility:
@@ -78,7 +109,8 @@ Strategies:
 
 Primary files:
 
-- `main.py` (`evaluate --task localization`)
+- `main.py` (`predict`)
+- `src/cli/cmd_predict.py`
 - `src/cli/cmd_evaluate.py`
 - `src/localization/base.py`
 - `src/localization/detector_cv.py`
@@ -93,7 +125,10 @@ Responsibility:
 
 Primary file:
 
-- `src/evaluation/valid_measure.py`
+- `main.py` (`predict`)
+- `src/cli/cmd_predict.py`
+- `src/prediction/builders.py`
+- `src/evaluation/measurement.py`
 
 Outputs:
 
@@ -109,13 +144,14 @@ Responsibility:
 
 Primary files:
 
-- `main.py` (`evaluate` sub-command)
-- `src/cli/cmd_evaluate.py`
+- `main.py` (`validate`)
+- `src/cli/cmd_validate.py`
+- `src/cli/cmd_evaluate.py` (internal backend)
 - `src/evaluation/base.py`
 - `src/evaluation/engine.py`
-- `src/evaluation/valid_loc.py`
-- `src/evaluation/valid_measure.py`
-- `src/evaluation/valid_accuracy.py`
+- `src/evaluation/localization.py`
+- `src/evaluation/measurement.py`
+- `src/evaluation/accuracy.py`
 
 ## 5. Asset Model
 
@@ -171,9 +207,9 @@ Current state:
   wiring now exist via:
   - `src/data/prediction_loader.py`
   - `src/data/prediction_store.py`
-  - `main.py evaluate --save-predictions`
+  - `main.py predict`
 - prediction reload / reuse is wired into the canonical evaluation path via
-  `main.py evaluate --prediction-run-id`
+  `main.py validate --prediction-run-id`
 - Phase D initial separation now exists via:
   - `src/prediction/builders.py`
   - `src/prediction/__init__.py`
@@ -205,9 +241,12 @@ Current implementation note:
   `RDE` and pairwise ordering, while still using saved localization points
   for `NME`
 - `LocalizationValidator` now prefers saved `localization.csv` directly
-- runtime-dataset rehydration still exists as compatibility / context support
-  for current debug-oriented flows, but saved prediction assets are no longer
-  only a side output
+- the user-facing `main.py validate` path now rebuilds a lightweight runtime
+  dataset directly from Dataset Asset metadata and does not reload raw COCO
+  annotations or detector stacks
+- runtime-dataset rehydration still exists in internal evaluation helpers for
+  fresh prediction-side flows and debug-oriented contexts, but saved prediction
+  assets are no longer only a side output
 
 Canonical run metadata:
 
@@ -278,13 +317,19 @@ Interpretation:
 
 Measures eye localization error normalized by GT inter-ocular distance.
 
-```text
-e_L = ||p_L_pred - p_L_gt||
-e_R = ||p_R_pred - p_R_gt||
-d_IOD_gt = ||p_L_gt - p_R_gt||
+Because this assignment only requires locating the two eyes as an unordered
+pair, NME is computed with unordered eye-pair matching:
 
-NME = (e_L + e_R) / (2 * d_IOD_gt)
+```text
+direct  = (||p_L_pred - p_L_gt|| + ||p_R_pred - p_R_gt||) / (2 * d_IOD_gt)
+swapped = (||p_L_pred - p_R_gt|| + ||p_R_pred - p_L_gt||) / (2 * d_IOD_gt)
+
+NME = min(direct, swapped)
 ```
+
+This prevents laterality-convention mismatch from being counted as a large
+localization failure when the two predicted eye points are spatially close to
+the GT pair.
 
 ### RDE: Relative Distance Error
 
@@ -349,24 +394,54 @@ Sub-commands:
 - `data` -> Phase 1 COCO filtering and Dataset Asset export
 - `annotate` -> interactive human GT annotation
 - `review` -> GT overlay export and visual inspection
-- `evaluate` -> localization / measurement / accuracy / prediction-asset flows
+- `predict` -> localization + measurement + Prediction Asset export
+- `validate` -> GT-based validation from Dataset Asset + Prediction Asset
 
 Global arguments:
 
 - `--config`
 - `--verbose`
 
-### `main.py evaluate`
+### `main.py predict`
 
-Task routing:
+Owns prediction-side work:
 
-- `pipeline` -> `localization + measurement`
-- `accuracy` -> GT-based validation and requires `--dataset-id`
-- `all` -> all registered validators available for the current context
-- `--save-predictions` -> export formal Prediction Asset MVP files for the
-  current runtime flow
-- `--prediction-run-id` -> load saved prediction assets and evaluate without
-  re-running Phase 2 inference
+- input: frozen Dataset Asset
+- output: Prediction Asset under `assets/predictions/<run_id>/...`
+- scope:
+  - localization
+  - measurement
+- conceptual contract:
+  - `A -> C`
+
+### `main.py validate`
+
+Owns GT-based validation:
+
+- input:
+  - frozen Dataset Asset
+  - Human GT Asset
+  - Prediction Asset
+- output:
+  - GT-based validation reports
+- scope:
+  - `NME`
+  - `RDE`
+  - pairwise ordering accuracy
+- conceptual contract:
+  - `A + B + C -> D`
+- implementation boundary:
+  - loads Dataset Asset directly
+  - loads Human GT directly
+  - loads Prediction Asset directly
+  - does not require COCO download checks or rerun detector inference
+
+### `src/cli/cmd_evaluate.py`
+
+Internal advanced task-centric backend:
+
+- still used as shared implementation support
+- no longer the primary operator-facing CLI surface
 
 ## 10. Current Architectural Risks
 

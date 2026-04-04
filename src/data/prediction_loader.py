@@ -43,6 +43,12 @@ class PredictionAssetLoader:
         self._prediction_root = Path(
             asset_cfg.get("prediction_root", "assets/predictions")
         )
+        self._schema_version = int(
+            asset_cfg.get(
+                "prediction_schema_version",
+                asset_cfg.get("schema_version", 1),
+            )
+        )
 
     @property
     def prediction_root(self) -> Path:
@@ -72,19 +78,33 @@ class PredictionAssetLoader:
 
         if not meta_path.is_file():
             raise FileNotFoundError(f"run_meta.json 不存在: {meta_path}")
+        if not localization_path.is_file():
+            raise FileNotFoundError(
+                f"localization.csv 不存在: {localization_path}"
+            )
+        if not measurement_instances_path.is_file():
+            raise FileNotFoundError(
+                "measurement_instances.csv 不存在: "
+                f"{measurement_instances_path}"
+            )
+        if not measurement_pairs_path.is_file():
+            raise FileNotFoundError(
+                f"measurement_pairs.csv 不存在: {measurement_pairs_path}"
+            )
 
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
+        self._validate_meta(run_id, meta)
 
-        localization = _load_optional_csv(
+        localization = _load_required_csv(
             localization_path,
             LOCALIZATION_COLUMNS,
         )
-        measurement_instances = _load_optional_csv(
+        measurement_instances = _load_required_csv(
             measurement_instances_path,
             MEASUREMENT_INSTANCE_COLUMNS,
         )
-        measurement_pairs = _load_optional_csv(
+        measurement_pairs = _load_required_csv(
             measurement_pairs_path,
             MEASUREMENT_PAIR_COLUMNS,
         )
@@ -105,6 +125,49 @@ class PredictionAssetLoader:
             measurement_instances=measurement_instances,
             measurement_pairs=measurement_pairs,
         )
+
+    def _validate_meta(self, run_id: str, meta: dict[str, Any]) -> None:
+        """Validate metadata contract for one prediction asset."""
+        required_keys = {
+            "run_id",
+            "dataset_id",
+            "created_at",
+            "schema_version",
+            "method",
+            "task_scope",
+        }
+        missing = sorted(
+            key for key in required_keys
+            if not str(meta.get(key, "")).strip()
+            and key not in {"schema_version"}
+        )
+        if "schema_version" not in meta:
+            missing.append("schema_version")
+        if missing:
+            raise ValueError(
+                "Prediction Asset metadata 缺少必要欄位: "
+                f"{missing}"
+            )
+
+        meta_run_id = str(meta.get("run_id", "")).strip()
+        if meta_run_id != run_id:
+            raise ValueError(
+                "Prediction Asset metadata 與目錄名稱不一致: "
+                f"{meta_run_id} != {run_id}"
+            )
+
+        try:
+            schema_version = int(meta.get("schema_version"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "Prediction Asset metadata 的 schema_version 非法。"
+            ) from exc
+
+        if schema_version != self._schema_version:
+            raise ValueError(
+                "Prediction Asset schema_version 不相容: "
+                f"{schema_version} != {self._schema_version}"
+            )
 
 
 def apply_localization_predictions(
@@ -166,15 +229,14 @@ def apply_localization_predictions(
     return dataset
 
 
-def _load_optional_csv(path: Path, columns: list[str]) -> pd.DataFrame:
-    """Load one optional CSV and normalize canonical columns."""
-    if not path.is_file():
-        return pd.DataFrame(columns=columns)
-
+def _load_required_csv(path: Path, columns: list[str]) -> pd.DataFrame:
+    """Load one required CSV and validate canonical columns."""
     df = pd.read_csv(path)
-    for column in columns:
-        if column not in df.columns:
-            df[column] = None
+    missing = [column for column in columns if column not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{path.name} 缺少必要欄位: {missing}"
+        )
     return df[columns]
 
 

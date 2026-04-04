@@ -9,44 +9,65 @@ from pathlib import Path
 from typing import Any
 
 from src.cli._shared_parsers import dataset_id_parser
+from src.utils.cli import BaseCLICommand, CommandContext
 
 logger = logging.getLogger(__name__)
 
-REVIEW_DEFAULT_OUTPUT_DIR = "output/debug_labels"
+REVIEW_DEFAULT_OUTPUT_DIR = "output/review_labels"
+
+
+class ReviewCommand(BaseCLICommand):
+    """GT review and overlay export command."""
+
+    name = "review"
+    help = "Human GT 標註視覺檢查"
+
+    def get_parser_kwargs(self) -> dict[str, Any]:
+        return {"parents": [dataset_id_parser()]}
+
+    def configure_parser(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--image-id",
+            nargs="+",
+            type=int,
+            default=None,
+            help="僅檢查指定 image_id，可傳多個",
+        )
+        parser.add_argument(
+            "--from-csv",
+            type=str,
+            default=None,
+            help="從 CSV 讀取 image_id 清單",
+        )
+        parser.add_argument(
+            "--no-imshow",
+            action="store_true",
+            help="不使用 cv2.imshow 顯示圖片",
+        )
+        parser.add_argument(
+            "--review-output-dir",
+            type=str,
+            default=None,
+            help=(
+                "review 模式輸出圖片目錄 "
+                "(default: 使用 config.annotation.review_output_dir)"
+            ),
+        )
+
+    def execute(
+        self,
+        args: argparse.Namespace,
+        context: CommandContext,
+    ) -> None:
+        main(args, context.config)
+
+
+COMMAND = ReviewCommand()
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
-    """Register the ``review`` sub-command."""
-    parser = subparsers.add_parser(
-        "review",
-        help="Human GT 標註視覺檢查",
-        parents=[dataset_id_parser()],
-    )
-    parser.add_argument(
-        "--image-id",
-        nargs="+",
-        type=int,
-        default=None,
-        help="僅檢查指定 image_id，可傳多個",
-    )
-    parser.add_argument(
-        "--from-csv",
-        type=str,
-        default=None,
-        help="從 CSV 讀取 image_id 清單",
-    )
-    parser.add_argument(
-        "--no-imshow",
-        action="store_true",
-        help="不使用 cv2.imshow 顯示圖片",
-    )
-    parser.add_argument(
-        "--review-output-dir",
-        type=str,
-        default=REVIEW_DEFAULT_OUTPUT_DIR,
-        help=f"review 模式輸出圖片目錄 (default: {REVIEW_DEFAULT_OUTPUT_DIR})",
-    )
-    parser.set_defaults(func=main)
+    """Compatibility wrapper for legacy register-style imports."""
+    COMMAND.register(subparsers)
 
 
 def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
@@ -70,10 +91,18 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
     dataset_id = args.dataset_id or prompt_dataset_id(asset_loader)
     asset = asset_loader.load(dataset_id)
     labels_df = gt_store.load_labels(dataset_id)
+    annotation_cfg = config.get("annotation", {})
+    review_output_dir = str(
+        args.review_output_dir
+        or annotation_cfg.get("review_output_dir", REVIEW_DEFAULT_OUTPUT_DIR)
+    )
 
     use_imshow = resolve_imshow_usage(
         no_imshow=args.no_imshow,
         mode="review",
+        default_enabled=bool(
+            annotation_cfg.get("use_imshow_by_default", True)
+        ),
     )
 
     try:
@@ -82,7 +111,7 @@ def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
             labels_df=labels_df,
             explicit_ids=args.image_id,
             from_csv=args.from_csv,
-            output_dir=args.review_output_dir,
+            output_dir=review_output_dir,
             use_imshow=use_imshow,
         )
     except KeyboardInterrupt:
@@ -104,6 +133,16 @@ def _run_review(
     use_imshow: bool,
 ) -> None:
     """Core review loop."""
+    import cv2
+
+    from src.cli._annotation_helpers import (
+        WINDOW_NAME,
+        build_review_rows,
+        render_review_canvas,
+        resolve_image_path,
+        resolve_review_image_ids,
+    )
+
     if labels_df.empty:
         print("目前沒有 human labels 可供檢查，結束。")
         return
