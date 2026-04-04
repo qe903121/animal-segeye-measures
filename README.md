@@ -24,7 +24,7 @@ The current baseline focuses on:
 ## Scope Boundaries
 
 - Contours currently come from COCO `instance mask`, not from repo-native segmentation inference.
-- The AI localization path currently uses `GT bbox + top-down MMPose on CPU`.
+- The AI localization path currently uses `GT bbox + top-down pose inference`, with either a PyTorch/MMPose backend or an ONNX Runtime CPU backend.
 - Front/back output is a relative-depth proxy, not a physical 3D distance.
 
 For stable formulas, asset contracts, and methodology details, see:
@@ -40,6 +40,7 @@ For stable formulas, asset contracts, and methodology details, see:
 - PyYAML
 - pycocotools
 - OpenMMLab MMPose / MMCV
+- ONNX Runtime
 - Docker / VS Code Dev Container
 
 ## Canonical Entry Point
@@ -113,6 +114,30 @@ Run:
 docker run -it --rm --ipc=host -v "$(pwd)":/workspace -w /workspace animal-segeye-dev bash
 ```
 
+## ONNX Runtime CPU Backend
+
+The ONNX model is intentionally not committed into git history.
+
+Fetch the official artifact into the local ignored `models/` cache:
+
+```bash
+python tools/fetch_rtmpose_onnx.py
+```
+
+To enable the ONNX backend, set `eye_detection.ai_model.runtime: "onnx"` in
+`config/config.yaml` or use a copied config file with:
+
+```yaml
+eye_detection:
+  ai_model:
+    runtime: "onnx"
+    providers:
+      - "CPUExecutionProvider"
+```
+
+The current supported ONNX path is CPU-only and preserves the existing
+`GT bbox -> top-down pose -> EyeResult` contract.
+
 ## Typical Workflow
 
 ### 1. Build a Dataset Asset
@@ -148,6 +173,9 @@ python main.py review --dataset-id <dataset_id> --no-imshow
 ```bash
 python main.py predict --dataset-id <dataset_id> --method ai --skip-download
 ```
+
+For ONNX Runtime CPU, fetch the model first and switch the config runtime to
+`onnx` before running the same `predict` command.
 
 With an explicit run id:
 
@@ -210,6 +238,9 @@ Notes:
 - `predict_ai_run` and `predict_cv_run` are fixed `run_id` values; if they
   already exist, re-run with `--overwrite` or choose different run ids
 - this sequence reuses the committed Human GT and therefore skips `annotate`
+- the sample `predict_ai_run` command uses the current default AI runtime in
+  config; to test ONNX CPU, fetch the model first and switch
+  `eye_detection.ai_model.runtime` to `onnx`
 
 ## Output Artifacts
 
@@ -230,6 +261,16 @@ Notes:
 - `assets/predictions/<run_id>/localization.csv`
 - `assets/predictions/<run_id>/measurement_instances.csv`
 - `assets/predictions/<run_id>/measurement_pairs.csv`
+
+### Local Model Cache
+
+- `models/rtmpose_ap10k/end2end.onnx`
+- `models/rtmpose_ap10k/detail.json`
+- `models/rtmpose_ap10k/pipeline.json`
+- `models/rtmpose_ap10k/deploy.json`
+
+These files are user-fetched local cache artifacts and are not committed to
+git history.
 
 ### Reports And Overlays
 
@@ -255,9 +296,10 @@ This repository is currently CLI-first.
 
 ## Next Steps
 
-- migrate the current AI localization backend from MMPose-on-CPU toward an
-  ONNX Runtime path
-- benchmark `PyTorch CPU` vs `ONNX Runtime CPU` on the same frozen Dataset Asset
+- keep benchmark and parity notes up to date for `PyTorch CPU` vs
+  `ONNX Runtime CPU`
+- decide later whether ONNX should remain optional or become the default AI
+  runtime after more parity validation
 - verify prediction parity for:
   - eye coordinates
   - confidence behavior

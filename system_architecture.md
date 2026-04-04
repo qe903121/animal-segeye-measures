@@ -121,6 +121,7 @@ See `README.md` for command examples and end-user workflow.
 - [builders.py](/workspace/src/prediction/builders.py)
 - [detector_cv.py](/workspace/src/localization/detector_cv.py)
 - [detector_ai.py](/workspace/src/localization/detector_ai.py)
+- [detector_ai_onnx.py](/workspace/src/localization/detector_ai_onnx.py)
 - [factory.py](/workspace/src/localization/factory.py)
 
 ### Evaluation layer
@@ -162,6 +163,7 @@ assets/predictions/<run_id>/
 ## 6. Boundary Notes
 
 - Contours currently come from COCO `instance mask`, not learned segmentation inference.
-- AI localization currently uses `GT bbox + top-down MMPose on CPU`.
+- AI localization currently uses `GT bbox + top-down pose`, with either the
+  default PyTorch/MMPose backend or the optional ONNX Runtime CPU backend.
 - `measurement` belongs to prediction-side work, not GT validation.
 - `front/back` is a monocular relative-depth proxy, not physical distance.

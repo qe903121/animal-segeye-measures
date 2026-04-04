@@ -86,6 +86,24 @@ operator language.
 - Added `system_architecture.md` as a dedicated high-level architecture
   diagram and asset-flow reference.
 
+### 2026-04-04
+
+- Added an ONNX Runtime CPU backend for the existing AI detector contract:
+  - the repo still uses `GT bbox + top-down pose`
+  - the backend switch is config-driven under `eye_detection.ai_model.runtime`
+- Added `tools/fetch_rtmpose_onnx.py` so the official ONNX artifact is fetched
+  by the user into local ignored storage rather than committed into git
+  history
+- Extended prediction metadata so AI runs now record backend identity such as:
+  - `mmpose:animal@pytorch`
+  - `mmpose:animal@onnx`
+- Verified the ONNX Runtime CPU path on the frozen sample dataset:
+  - `predict -> validate` completed successfully
+  - re-running the ONNX CPU path reproduced the same validation CSV outputs
+- Explored a GPU-container direction briefly, then intentionally backed it out
+  from the supported repo baseline because host/container GPU runtime setup
+  complexity was outside the current delivery scope
+
 ## 2. Key Pitfalls And Resolutions
 
 ### 2.1 CV localization reached a structural ceiling
@@ -169,6 +187,20 @@ Resolution:
 
 - `pipeline` now explicitly runs only `localization + measurement`
 - `accuracy` is opt-in and requires a valid `--dataset-id`
+
+### 2.8 GPU enablement was too environment-dependent for the current release
+
+Observed:
+
+- container-level GPU access depended on host Docker / NVIDIA runtime setup
+- this created environment-specific failures unrelated to the repo's core
+  prediction / validation contract
+
+Resolution:
+
+- keep the supported ONNX story on `CPUExecutionProvider`
+- keep ONNX model artifacts user-fetched and outside repo history
+- defer GPU setup until it can be owned as a separate environment task
 
 ## 3. Archived Design Decisions
 

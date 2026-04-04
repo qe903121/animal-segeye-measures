@@ -56,8 +56,14 @@ eye_detection:
     # MMPoseInferencer alias ('animal' maps to AP-10K model automatically)
     # Default: rtmpose-m_8xb64-210e_ap10k-256x256
     alias: "animal"
+    runtime: "pytorch"            # "pytorch" or "onnx"
     score_threshold: 0.3          # Keypoint confidence threshold
-    device: "cpu"                 # "cpu" or "cuda:0"
+    device: "cpu"                 # Backend execution target when applicable
+    onnx_model_path: "models/rtmpose_ap10k/end2end.onnx"
+    onnx_artifact_url: "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.zip"
+    onnx_artifact_sha256: "2d75445331cf2f21d6e164430f96ffa765cd874872965ae1736932dda03987f0"
+    providers:
+      - "CPUExecutionProvider"
 
   # --- Haar Cascade Parameters ---
   cascade:

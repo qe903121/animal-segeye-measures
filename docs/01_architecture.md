@@ -43,8 +43,11 @@ Document boundary:
 
 1. Animal contours currently come from COCO `instance mask`, not from this repo's own segmentation inference.
 2. The AI localization path currently solves `GT bbox -> top-down keypoint localization`, not full-scene detection.
-3. Front/back output is a `relative depth proxy`, not real-world distance.
-4. Reproducibility depends on frozen dataset and GT assets, not on re-running raw filtering each time.
+3. The AI backend is runtime-selectable behind the same detector contract:
+   - `pytorch` via MMPose
+   - `onnx` via ONNX Runtime CPU
+4. Front/back output is a `relative depth proxy`, not real-world distance.
+5. Reproducibility depends on frozen dataset and GT assets, not on re-running raw filtering each time.
 
 ## 4. System Layers
 
@@ -79,7 +82,8 @@ Current contract:
 Strategies:
 
 - CV baseline: heuristic cascade/blob approach
-- AI baseline: MMPose top-down animal pose
+- AI baseline: top-down animal pose with runtime-selectable backends
+  (`pytorch` default, `onnx` optional on CPU)
 
 ### Prediction Domain: Measurement Layer
 
@@ -200,6 +204,11 @@ Canonical run metadata:
 - `task_scope`
 - `git_commit`
 - `config_fingerprint`
+
+Current implementation note:
+
+- `model_name` includes runtime identity for AI prediction assets
+  (for example `mmpose:animal@pytorch` or `mmpose:animal@onnx`)
 
 Canonical prediction tables:
 

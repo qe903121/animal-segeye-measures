@@ -19,6 +19,7 @@ The synchronized end-state for this project is:
 - dataset filtering pipeline
 - CV eye-localization baseline
 - AI eye-localization baseline using MMPose top-down on CPU
+- ONNX Runtime CPU backend for the same AI detector contract
 - contour baseline using COCO instance masks
 - dataset asset export and reload by `dataset_id`
 - human GT annotation and review workflow
@@ -49,6 +50,14 @@ The synchronized end-state for this project is:
   - `localization.py`
   - `measurement.py`
   - `accuracy.py`
+- config-driven AI runtime selection:
+  - `runtime=pytorch`
+  - `runtime=onnx`
+- external ONNX artifact fetch helper:
+  - `tools/fetch_rtmpose_onnx.py`
+- runtime-identifying prediction metadata:
+  - `model_name` now records the backend suffix
+    (for example `mmpose:animal@onnx`)
 
 ### Sample frozen asset in repo
 
@@ -145,6 +154,41 @@ Internal note:
 - the formal lifecycle contract has been validated on the frozen sample asset:
   export once via `predict`, then re-run GT-based checking via `validate`
   without rerunning detector inference
+- the ONNX Runtime CPU path has also been validated on the frozen sample asset:
+  - `predict` produces the same Prediction Asset schema
+  - `validate` consumes the saved ONNX-produced asset unchanged
+
+### Verified ONNX CPU benchmark snapshot
+
+Frozen sample asset:
+
+- dataset:
+  - `coco_val2017_cat-dog_23714276`
+- AI runtime:
+  - `onnx`
+- provider:
+  - `CPUExecutionProvider`
+
+Verified summary:
+
+- `predict`:
+  - localization success rate:
+    - `94.4%`
+  - measurable eye distances:
+    - `17 / 18`
+  - measurable pairwise proxy:
+    - `10 / 12`
+- `validate`:
+  - `NME = 0.4224`
+  - `RDE = 23.5%`
+  - pairwise accuracy:
+    - `66.7%`
+
+Current interpretation:
+
+- ONNX Runtime CPU is now a supported optional AI backend
+- PyTorch remains the default runtime in config
+- GPU enablement is not part of the current supported delivery baseline
 
 ### Acceptance checklist: current regression contract
 
@@ -315,8 +359,12 @@ Non-goals during this phase:
 
 Current state:
 
-- AI eye localization uses RTMPose / MMPose on CPU
-- ONNX Runtime has not been integrated into the main prediction path
+- AI eye localization supports two backends behind the same detector contract:
+  - `pytorch`
+  - `onnx`
+- the currently supported ONNX path uses:
+  - `CPUExecutionProvider`
+- PyTorch remains the default runtime in config
 
 Why it matters:
 
@@ -326,9 +374,9 @@ Why it matters:
 
 Planned stages:
 
-1. Verify the official RTMPose AP-10K ONNX artifact and runtime dependencies.
-2. Benchmark `PyTorch CPU` vs `ONNX Runtime CPU` on the same frozen dataset asset.
-3. Confirm output parity for:
+1. Keep the official RTMPose AP-10K ONNX artifact fetch path documented and reproducible.
+2. Keep benchmark notes current for `PyTorch CPU` vs `ONNX Runtime CPU` on the same frozen dataset asset.
+3. Keep parity notes current for:
    - left/right eye coordinates
    - confidence / keypoint stability
    - downstream measurement outputs

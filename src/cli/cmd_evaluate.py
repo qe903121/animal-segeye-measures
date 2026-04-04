@@ -618,12 +618,10 @@ def _export_prediction_assets(
 def _resolve_model_name(method: str, config: dict) -> str:
     """Return a stable model label for prediction asset metadata."""
     if method == "ai":
-        alias = (
-            config.get("eye_detection", {})
-            .get("ai_model", {})
-            .get("alias", "animal")
-        )
-        return f"mmpose:{alias}"
+        ai_cfg = config.get("eye_detection", {}).get("ai_model", {})
+        alias = ai_cfg.get("alias", "animal")
+        runtime = str(ai_cfg.get("runtime", "pytorch")).strip().lower()
+        return f"mmpose:{alias}@{runtime}"
     if method == "cv":
         return "heuristic_cv"
     return method
