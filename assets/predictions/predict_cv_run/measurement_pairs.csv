@@ -1,0 +1,13 @@
+run_id,dataset_id,image_id,annotation_a_id,category_a,annotation_b_id,category_b,method,model_name,valid_pair,front_back_proxy_gap_px,front_back_proxy_ratio,relation,closer_annotation_id,farther_annotation_id,skip_reason
+predict_cv_run,coco_val2017_cat-dog_23714276,22892,3944,dog,46699,cat,cv,heuristic_cv,True,49.05,0.3865,B_CLOSER,46699.0,3944.0,
+predict_cv_run,coco_val2017_cat-dog_23714276,71226,3482,dog,15080,dog,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|FAILED_NOT_FOUND
+predict_cv_run,coco_val2017_cat-dog_23714276,71226,3482,dog,273554,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|SUCCESS
+predict_cv_run,coco_val2017_cat-dog_23714276,71226,15080,dog,273554,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|SUCCESS
+predict_cv_run,coco_val2017_cat-dog_23714276,189806,10068,dog,46540,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|SUCCESS
+predict_cv_run,coco_val2017_cat-dog_23714276,219578,6910,dog,51543,cat,cv,heuristic_cv,True,38.541,0.6236,A_CLOSER,6910.0,51543.0,
+predict_cv_run,coco_val2017_cat-dog_23714276,241326,9113,dog,47558,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,SUCCESS|FAILED_NOT_FOUND
+predict_cv_run,coco_val2017_cat-dog_23714276,318238,12430,dog,16916,dog,cv,heuristic_cv,False,,,UNAVAILABLE,,,SUCCESS|FAILED_NOT_FOUND
+predict_cv_run,coco_val2017_cat-dog_23714276,318238,12430,dog,1816433,cat,cv,heuristic_cv,True,93.493,0.6881,A_CLOSER,12430.0,1816433.0,
+predict_cv_run,coco_val2017_cat-dog_23714276,318238,16916,dog,1816433,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|SUCCESS
+predict_cv_run,coco_val2017_cat-dog_23714276,401991,2410,dog,49934,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,SUCCESS|FAILED_NOT_FOUND
+predict_cv_run,coco_val2017_cat-dog_23714276,543581,13363,dog,51956,cat,cv,heuristic_cv,False,,,UNAVAILABLE,,,FAILED_NOT_FOUND|FAILED_NOT_FOUND

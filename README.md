@@ -50,7 +50,7 @@ Document boundary:
 
 - this file is the primary owner of setup and operator workflow
 - stable formulas and runtime contracts live in `docs/01_architecture.md`
-- current status, TODOs, and roadmap live in `docs/02_active_context.md`
+- detailed status, TODOs, and roadmap live in `docs/02_active_context.md`
 
 Help:
 
@@ -165,6 +165,37 @@ This user-facing validation path:
 - does not rerun detector inference
 - does not require raw COCO reload
 
+### Examiner Quick Run
+
+The following sequence is intended for a reviewer or examiner who wants to run
+the committed sample workflow without creating new labels.
+
+Commands:
+
+```bash
+python main.py data --skip-download --categories cat dog --visualize-all
+python main.py review --dataset-id coco_val2017_cat-dog_23714276 --no-imshow --review-output-dir output/review_labels_smoke
+python main.py predict --dataset-id coco_val2017_cat-dog_23714276 --method ai --skip-download --run-id predict_ai_run --output-dir output/predict_ai
+python main.py predict --dataset-id coco_val2017_cat-dog_23714276 --method cv --skip-download --run-id predict_cv_run --output-dir output/predict_cv
+python main.py validate --dataset-id coco_val2017_cat-dog_23714276 --prediction-run-id predict_ai_run --output-dir output/validate_ai
+```
+
+Optional CV comparison:
+
+```bash
+python main.py validate --dataset-id coco_val2017_cat-dog_23714276 --prediction-run-id predict_cv_run --output-dir output/validate_cv
+```
+
+Notes:
+
+- this sequence assumes the local COCO data required by the repo is already
+  present; on a fresh machine, remove `--skip-download` from the `data` step
+  first
+- `review` also requires the original source images to be available locally
+- `predict_ai_run` and `predict_cv_run` are fixed `run_id` values; if they
+  already exist, re-run with `--overwrite` or choose different run ids
+- this sequence reuses the committed Human GT and therefore skips `annotate`
+
 ## Output Artifacts
 
 ### Dataset Asset
@@ -206,6 +237,18 @@ This repository is currently CLI-first.
 - API service: not implemented
 - API docs link: not applicable yet
 - test account info: not applicable
+
+## Next Steps
+
+- migrate the current AI localization backend from MMPose-on-CPU toward an
+  ONNX Runtime path
+- benchmark `PyTorch CPU` vs `ONNX Runtime CPU` on the same frozen Dataset Asset
+- verify prediction parity for:
+  - eye coordinates
+  - confidence behavior
+  - downstream measurement outputs
+- keep the current `predict -> validate` contract stable while changing the
+  inference backend
 
 ## Known Limits
 

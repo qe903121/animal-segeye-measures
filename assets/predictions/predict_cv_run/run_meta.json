@@ -1,0 +1,11 @@
+{
+  "run_id": "predict_cv_run",
+  "dataset_id": "coco_val2017_cat-dog_23714276",
+  "created_at": "2026-04-04T06:52:53.082639Z",
+  "schema_version": 1,
+  "method": "cv",
+  "model_name": "heuristic_cv",
+  "task_scope": "predict",
+  "git_commit": "",
+  "config_fingerprint": "84b522278527"
+}
