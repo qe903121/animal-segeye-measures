@@ -1,5 +1,7 @@
 # Animal SegEye Measures
 
+![Demo](./assets/demo/eyes_219578.jpg)
+
 Animal SegEye Measures is a reproducible baseline pipeline for animal-image metrology on COCO.
 
 It is organized around five operator commands:
@@ -44,6 +46,12 @@ For stable formulas, asset contracts, and methodology details, see:
 
 ```bash
 python main.py --config config/config.yaml [--verbose] <command> [args]
+```
+
+Convenience wrapper:
+
+```bash
+make help
 ```
 
 Document boundary:
@@ -169,6 +177,13 @@ This user-facing validation path:
 
 The following sequence is intended for a reviewer or examiner who wants to run
 the committed sample workflow without creating new labels.
+
+Fastest wrapper form:
+
+```bash
+make full
+make examiner
+```
 
 Commands:
 
