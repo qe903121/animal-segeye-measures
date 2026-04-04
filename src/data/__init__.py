@@ -2,8 +2,8 @@
 
 Provides:
     AutoDownloader: Idempotent COCO val2017 downloader with retry logic.
-    DatasetAssetLoader: Reader for exported Phase 1 dataset assets.
-    DatasetAssetExporter: Export standardized Phase 1 dataset assets.
+    DatasetAssetLoader: Reader for exported dataset assets.
+    DatasetAssetExporter: Export standardized dataset assets.
     build_lightweight_dataset_from_asset: Asset-only runtime dataset builder.
     COCODataLoader: GT annotation loader with multi-animal filtering.
     HumanLabelStore: Persist reusable human ground-truth labels.

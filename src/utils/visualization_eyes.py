@@ -1,4 +1,4 @@
-"""Visualization tools for eye detection results (Phase 2).
+"""Visualization tools for prediction-side eye localization results.
 
 Overlays GT contours, detected eye positions, connecting lines, status
 labels, and confidence scores onto original images for human visual
@@ -81,7 +81,7 @@ def debug_visualize_eyes(
     """Overlay eye detection results on original images.
 
     For each annotation, draws:
-        - Semi-transparent GT contours from Phase 1.
+        - Semi-transparent contours from the dataset asset.
         - Bounding box and category label.
         - **SUCCESS**: Red circle (left eye) + Blue circle (right eye)
           + Green connecting line + confidence score.

@@ -63,7 +63,7 @@ class BaseEyeDetector(ABC):
         each annotation's ``eyes`` field.
 
         Args:
-            dataset: Phase 1 output (list of :class:`ImageRecord`).
+            dataset: Runtime dataset output (list of :class:`ImageRecord`).
 
         Returns:
             The same dataset list with ``eyes`` fields populated.

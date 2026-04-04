@@ -8,7 +8,7 @@ Public API:
     - :class:`BaseValidator`: Abstract base class for all validators.
     - :class:`EvaluationEngine`: Registry + executor for validators.
     - :class:`LocalizationValidator`: Eye localization quality validator.
-    - :class:`MeasurementValidator`: Phase 3 baseline measurement validator.
+    - :class:`MeasurementValidator`: Prediction-side baseline measurement validator.
     - :class:`AccuracyValidator`: Ground truth accuracy validator.
 """
 

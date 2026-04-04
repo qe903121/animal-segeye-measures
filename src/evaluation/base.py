@@ -61,7 +61,7 @@ class BaseValidator(ABC):
         ``annotation["eyes"]``) and derive aggregate statistics.
 
         Args:
-            dataset: Phase 1/2 output — list of :class:`ImageRecord`
+            dataset: Runtime dataset — list of :class:`ImageRecord`
                 dicts with ``eyes`` fields already populated.
             prediction_asset: Optional formal Prediction Asset bundle.
                 When provided, validators should prefer consuming it

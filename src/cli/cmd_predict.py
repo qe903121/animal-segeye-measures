@@ -2,8 +2,8 @@
 
 This user-facing command owns all prediction-side work:
 
-- Phase 2 eye localization
-- Phase 3 measurement generation
+- eye localization
+- measurement generation
 - formal Prediction Asset export
 
 Conceptual contract:

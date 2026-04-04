@@ -17,10 +17,10 @@ The current baseline prioritizes end-to-end reproducibility, clear asset boundar
 
 The project is organized around four asset layers:
 
-- `A` Dataset Asset: frozen Phase 1 membership exported from COCO filtering
+- `A` Dataset Asset: frozen dataset membership exported from COCO filtering
 - `B` Human GT Asset: reusable manual labels for left/right eyes and `depth_rank`
 - `C` Prediction Asset: saved localization and measurement outputs by `run_id`
-- `D` Evaluation: baseline reporting plus GT-based accuracy analysis
+- `D` Validation Report: GT-based reporting and accuracy analysis
 
 Important scope boundaries:
 
@@ -191,7 +191,7 @@ This command:
 
 - requires frozen Dataset Asset + Human GT + Prediction Asset
 - validates directly from saved assets; it does not require COCO download checks
-- does not rerun Phase 2 inference
+- does not rerun detector inference
 - outputs GT-based validation reports such as:
   - `NME`
   - `RDE`

@@ -1,6 +1,6 @@
 """Localization quality validator for eye detection results.
 
-Evaluates and reports on the quality of Phase 2 eye localization by
+Evaluates and reports on the quality of prediction-side eye localization by
 computing detection rates, confidence statistics, and per-category
 breakdowns. Reuses :func:`~src.utils.visualization_eyes.debug_visualize_eyes`
 for debug image generation to avoid code duplication.
@@ -82,7 +82,7 @@ class LocalizationValidator(BaseValidator):
         and aggregates counts, rates, and confidence statistics.
 
         Args:
-            dataset: Phase 1/2 output with ``eyes`` populated.
+            dataset: Runtime dataset with ``eyes`` already populated.
 
         Returns:
             Metrics dictionary with keys documented in the class

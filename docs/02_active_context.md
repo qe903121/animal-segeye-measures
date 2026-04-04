@@ -16,7 +16,7 @@ The synchronized end-state for this project is:
 
 ### Implemented
 
-- Phase 1 dataset filtering pipeline
+- dataset filtering pipeline
 - CV eye-localization baseline
 - AI eye-localization baseline using MMPose top-down on CPU
 - contour baseline using COCO instance masks
@@ -24,11 +24,11 @@ The synchronized end-state for this project is:
 - human GT annotation and review workflow
 - baseline measurement validator
 - GT-based accuracy validator
-- Prediction Asset Layer Phase A schema definitions (`run_id`, `run_meta.json`,
+- Prediction Asset Layer schema definitions (`run_id`, `run_meta.json`,
   canonical prediction CSV columns)
-- Prediction Asset Layer Phase B export from current runtime flow
-- Prediction Asset Layer Phase C loading from saved prediction assets
-- Prediction Asset Layer Phase D initial separation and formal lifecycle support:
+- Prediction Asset Layer export from current runtime flow
+- Prediction Asset Layer loading from saved prediction assets
+- Prediction Asset Layer lifecycle support and separation:
   - shared prediction builders in `src/prediction/builders.py`
   - `BaseValidator` / `EvaluationEngine` formally accept `prediction_asset`
   - `LocalizationValidator`, `MeasurementValidator`, and `AccuracyValidator`
@@ -218,7 +218,7 @@ Operator-facing interpretation:
   - requires `--dataset-id`
   - requires `--prediction-run-id`
   - requires matching Human GT
-  - does not rerun Phase 2 inference
+  - does not rerun detector inference
   - does not depend on raw COCO reload in the user-facing path
 - `src/prediction/builders.py` owns shared localization / measurement
   prediction-table generation
@@ -229,14 +229,14 @@ Operator-facing interpretation:
   measurement assets for `RDE` / pairwise evaluation
 - the formal lifecycle contract has been validated on the frozen sample asset:
   export once via `predict`, then re-run GT-based checking via `validate`
-  without rerunning Phase 2 inference
+  without rerunning detector inference
 
 ### Detailed acceptance checklist: Prediction Asset Layer end-state
 
 Goal:
 
 - prove that the formal `C` layer can be exported once and then reused by
-  evaluators without re-running Phase 2 inference
+  evaluators without re-running detector inference
 - prove that the engine / validator lifecycle now formally accepts
   `prediction_asset`, instead of relying only on runtime config mutation
 
@@ -475,7 +475,7 @@ Acceptance criteria:
 1. `predict` can run on a frozen Dataset Asset without Human GT
 2. `predict` always exports a formal Prediction Asset
 3. `validate` fails fast if GT or `prediction_run_id` is missing
-4. `validate` does not rerun Phase 2 inference
+4. `validate` does not rerun detector inference
 5. README and operator examples teach `predict -> validate`, not task names
 6. internal validator/task decomposition can still exist without leaking into
    the primary operator UX

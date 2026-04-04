@@ -1,4 +1,4 @@
-"""Dataset asset exporter for standardized Phase 1 outputs.
+"""Dataset asset exporter for standardized dataset-building outputs.
 
 Transforms the in-memory filtered dataset into a persistent dataset
 asset directory that can be reused by later ground-truth labeling,
@@ -55,7 +55,7 @@ class DatasetAssetInfo:
 
 
 class DatasetAssetExporter:
-    """Export a Phase 1 dataset into a reusable asset directory."""
+    """Export a filtered dataset into a reusable asset directory."""
 
     def __init__(self, config: dict) -> None:
         """Initialize the exporter from global config."""
@@ -75,7 +75,7 @@ class DatasetAssetExporter:
         """Persist manifest and per-instance table for the dataset.
 
         Args:
-            dataset: Filtered Phase 1 dataset.
+            dataset: Filtered dataset ready for asset export.
             target_categories: Requested target categories for this run.
             dataset_id: Optional fixed dataset id. When omitted, a
                 deterministic id is derived from source/filter settings

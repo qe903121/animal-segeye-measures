@@ -4,6 +4,10 @@ Last updated: 2026-04-04
 
 This file archives historical engineering notes, pitfalls, and major decision changes. It is not the primary source of truth for current architecture or active tasks.
 
+Historical entries in this journal may intentionally retain legacy `Phase`
+wording when they describe past milestones rather than the current canonical
+operator language.
+
 ## 0. Recent Structural Changes
 
 - Refactored the canonical CLI into an OOP lifecycle:

@@ -44,7 +44,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     """Register the ``evaluate`` sub-command."""
     parser = subparsers.add_parser(
         "evaluate",
-        help="Phase 2-4: 偵測 → 量測 → 驗證",
+        help="internal backend: localization → measurement → validation",
         parents=[coco_data_parser(), dataset_id_parser()],
         epilog=(
             "範例:\n"
@@ -83,7 +83,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help=(
             "使用既有 Prediction Asset id 回填 saved localization prediction，"
-            "跳過 Phase 2 inference"
+            "跳過 detector inference"
         ),
     )
     parser.add_argument(
@@ -307,7 +307,7 @@ def _load_real_dataset(
     prediction_run_id: str | None = None,
     prediction_asset: Any = None,
 ) -> list:
-    """Run Phase 2 on either a fresh Phase 1 dataset or a frozen asset."""
+    """Prepare a runtime dataset from either fresh COCO filtering or a frozen asset."""
     from src.data import AutoDownloader, COCODataLoader, DatasetAssetLoader
 
     if not skip_download:
@@ -333,7 +333,7 @@ def _load_real_dataset(
         )
         dataset = loader.load_dataset_from_instances(asset.instances)
     else:
-        logger.info("載入 Phase 1 篩選資料集...")
+        logger.info("載入即時過濾資料集...")
         loader = COCODataLoader(
             data_root=config["coco"]["data_root"],
             target_categories=categories,
@@ -356,13 +356,13 @@ def _load_real_dataset(
             prediction_asset.localization,
         )
         logger.info(
-            "已載入 saved prediction，跳過 Phase 2 inference: %s",
+            "已載入 saved prediction，跳過 detector inference: %s",
             prediction_run_id,
         )
     else:
         from src.localization import create_detector
 
-        logger.info("執行 Phase 2 眼睛偵測 (method=%s)...", method)
+        logger.info("執行眼睛偵測 (method=%s)...", method)
         detector = create_detector(method, config)
         dataset = detector.process_dataset(dataset)
 

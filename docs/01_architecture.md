@@ -11,7 +11,7 @@ This project builds a reproducible baseline pipeline for animal-image metrology 
 - localize left/right eyes
 - measure per-animal inter-eye distance
 - estimate pairwise front/back relationship in a single image
-- evaluate predictions against human ground truth when available
+- validate saved predictions against human ground truth when available
 
 The current baseline prioritizes end-to-end reproducibility and validation over solving every subproblem with a learned model.
 
@@ -73,7 +73,7 @@ Why this matters:
 - allows command-specific polymorphism without reintroducing multiple
   disconnected entry scripts
 
-### Phase 1: Dataset Layer
+### Data Domain: Dataset Layer
 
 Responsibility:
 
@@ -96,7 +96,7 @@ Outputs:
 - `assets/datasets/<dataset_id>/manifest.json`
 - `assets/datasets/<dataset_id>/instances.csv`
 
-### Phase 2: Eye Localization Layer
+### Prediction Domain: Localization Layer
 
 Responsibility:
 
@@ -117,7 +117,7 @@ Primary files:
 - `src/localization/detector_ai.py`
 - `src/localization/factory.py`
 
-### Phase 3: Measurement Layer
+### Prediction Domain: Measurement Layer
 
 Responsibility:
 
@@ -135,7 +135,7 @@ Outputs:
 - per-animal `eye_distance_px`
 - pairwise `front_back_proxy_gap_px`
 
-### Phase 4: Evaluation Layer
+### Validation Domain: Report Layer
 
 Responsibility:
 
@@ -161,7 +161,7 @@ The project follows a four-layer asset model:
 
 Purpose:
 
-- freeze Phase 1 membership
+- freeze dataset membership
 - provide stable join keys
 
 Files:
@@ -203,14 +203,13 @@ Current state:
 
 - a formal `C` layer now exists for the current project scope
 - validator reports still exist as human-facing outputs on top of that layer
-- Phase A schema definitions, Phase B export wiring, and Phase C reload
-  wiring now exist via:
+- formal schema definitions, export wiring, and reload support now exist via:
   - `src/data/prediction_loader.py`
   - `src/data/prediction_store.py`
   - `main.py predict`
 - prediction reload / reuse is wired into the canonical evaluation path via
   `main.py validate --prediction-run-id`
-- Phase D initial separation now exists via:
+- prediction-generation separation now exists via:
   - `src/prediction/builders.py`
   - `src/prediction/__init__.py`
   - `MeasurementValidator` consuming shared prediction builders instead of
@@ -365,7 +364,7 @@ Important:
 
 - `BaseEyeDetector` defines the common detector lifecycle
 - `factory.py` selects CV or AI implementation
-- keeps Phase 2 swappable without changing dataset or evaluator interfaces
+- keeps the localization backend swappable without changing dataset or validator interfaces
 
 ### Validator abstraction
 
@@ -391,7 +390,7 @@ Canonical operator entry point.
 
 Sub-commands:
 
-- `data` -> Phase 1 COCO filtering and Dataset Asset export
+- `data` -> COCO filtering and Dataset Asset export
 - `annotate` -> interactive human GT annotation
 - `review` -> GT overlay export and visual inspection
 - `predict` -> localization + measurement + Prediction Asset export

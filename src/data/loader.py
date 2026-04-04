@@ -68,7 +68,7 @@ class AnnotationEntry(TypedDict):
         bbox: Bounding box as ``[x, y, width, height]``.
         mask: Binary mask, shape ``(H, W)``, dtype ``uint8``, values 0 or 255.
         contours: OpenCV-format contour arrays from ``cv2.findContours``.
-        eyes: Eye detection result (populated by Phase 2). Optional.
+        eyes: Eye detection result (populated by prediction-side localization). Optional.
     """
 
     id: int
@@ -355,7 +355,7 @@ class COCODataLoader:
 
         This path preserves a frozen Dataset Asset membership by using
         the exact ``image_id`` / ``annotation_id`` pairs from
-        ``instances.csv`` instead of re-running Phase 1 filtering logic.
+        ``instances.csv`` instead of re-running dataset filtering logic.
 
         Args:
             instances: Dataset asset per-instance table.

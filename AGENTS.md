@@ -8,11 +8,11 @@ This repository builds a reproducible baseline metrology pipeline on COCO animal
 
 Current baseline:
 
-- Phase 1 filters multi-animal COCO images and exports frozen dataset assets
+- `data` filters multi-animal COCO images and exports frozen dataset assets
 - contours currently come from COCO `instance mask`
-- Phase 2 localizes eyes via CV and AI baselines
+- `predict` localizes eyes via CV and AI baselines
 - the AI path uses `GT bbox + top-down MMPose on CPU`
-- Phase 3 measures inter-eye pixel distance and front/back relative-depth proxy
+- `predict` measures inter-eye pixel distance and front/back relative-depth proxy
 - the canonical operator entry is now `main.py` with `data / annotate / review / predict / validate`
 - the canonical CLI lifecycle now uses an OOP `Application / Command / Context` design
 - human labels are stored as reusable GT assets and can be reviewed through `main.py annotate` and `main.py review`

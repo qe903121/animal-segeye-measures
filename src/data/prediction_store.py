@@ -1,9 +1,8 @@
 """Prediction asset schema and storage helpers.
 
-This module defines the Phase A MVP contract for the Prediction Asset Layer.
-It does not yet replace the current runtime-dataset prediction flow; instead,
-it establishes the filesystem schema, canonical column definitions, and
-metadata structure required for later export/load integration.
+This module defines the current MVP contract for the Prediction Asset Layer.
+It establishes the filesystem schema, canonical column definitions, and
+metadata structure used by export/load flows.
 """
 
 from __future__ import annotations

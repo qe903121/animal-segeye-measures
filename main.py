@@ -15,10 +15,10 @@ Usage::
 
 Available commands::
 
-    data       Phase 1: COCO download, filter, and dataset asset export
+    data       COCO download, filter, and dataset asset export
     annotate   Human GT annotation (terminal-only interactive workflow)
     review     Human GT visual review and overlay export
-    predict    Phase 2-3: localization + measurement + Prediction Asset export
+    predict    localization + measurement + Prediction Asset export
     validate   GT-based validation from Dataset Asset + Prediction Asset
 
 Examples::

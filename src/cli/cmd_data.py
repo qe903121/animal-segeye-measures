@@ -1,4 +1,4 @@
-"""Sub-command: data — Phase 1 COCO download, filter, and asset export."""
+"""Sub-command: data — COCO download, filtering, and Dataset Asset export."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class DataCommand(BaseCLICommand):
-    """User-facing Phase 1 dataset pipeline command."""
+    """User-facing dataset-building command."""
 
     name = "data"
-    help = "Phase 1: COCO 下載 → 過濾 → Dataset Asset 匯出"
+    help = "COCO 下載 → 過濾 → Dataset Asset 匯出"
 
     def get_parser_kwargs(self) -> dict[str, Any]:
         return {"parents": [coco_data_parser()]}
@@ -52,7 +52,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 def main(args: argparse.Namespace, config: dict[str, Any]) -> None:
-    """Execute the Phase 1 data pipeline."""
+    """Execute the dataset-building pipeline."""
     from src.data import AutoDownloader, COCODataLoader, DatasetAssetExporter
     from src.utils.cli import SummaryItem, log_banner, log_summary
     from src.utils.visualization import debug_visualize

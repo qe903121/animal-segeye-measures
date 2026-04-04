@@ -1,4 +1,4 @@
-# AI Dependencies for MMPose AP-10K Integration (Phase 2.5)
+# AI Dependencies for the MMPose AP-10K localization backend
 # Using CPU versions by default for WSL/Docker compatibility
 
 --extra-index-url https://download.pytorch.org/whl/cpu

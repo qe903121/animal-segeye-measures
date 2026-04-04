@@ -1,4 +1,4 @@
-"""Dataset asset loader for Phase 1 exported assets."""
+"""Dataset asset loader for exported dataset assets."""
 
 from __future__ import annotations
 

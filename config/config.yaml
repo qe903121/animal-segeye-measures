@@ -46,12 +46,12 @@ assets:
   schema_version: 1
   prediction_schema_version: 1
 
-# ===== Eye Detection Parameters (Phase 2 & 2.5) =====
+# ===== Eye Localization Parameters =====
 eye_detection:
   method: "ai"                    # "cv" 或 "ai"
   min_head_pixels: 400            # Mask 最小像素數 (低於此跳過偵測)
   
-  # --- AI Model Parameters (Phase 2.5) ---
+  # --- AI Localization Backend Parameters ---
   ai_model:
     # 使用 MMPoseInferencer 的別名 (animal 自動對應 AP-10K 模型)
     # 預設為 rtmpose-m_8xb64-210e_ap10k-256x256

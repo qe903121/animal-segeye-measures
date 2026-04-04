@@ -1,4 +1,4 @@
-"""Baseline measurement validator for Phase 3 metrology outputs.
+"""Baseline measurement validator for prediction-side metrology outputs.
 
 Computes two measurement families from the already-populated ``eyes``
 results in the dataset:
@@ -36,10 +36,10 @@ logger = logging.getLogger(__name__)
 
 
 class MeasurementValidator(BaseValidator):
-    """Phase 3 baseline measurement validator.
+    """Prediction-side baseline measurement validator.
 
     This validator does not run inference. It consumes the dataset after
-    Phase 2 eye localization and derives measurement tables plus summary
+    eye localization and derives measurement tables plus summary
     statistics for:
 
     - ``eye_distance_px`` per valid animal instance
